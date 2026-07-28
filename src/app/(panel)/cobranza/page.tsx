@@ -7,6 +7,8 @@ import { Paginacion } from '@/app/(panel)/clientes/Paginacion';
 import { FiltrosMora } from '@/app/(panel)/cobranza/FiltrosMora';
 import { FormaCobro } from '@/app/(panel)/cobranza/FormaCobro';
 import { GenerarMes } from '@/app/(panel)/cobranza/GenerarMes';
+import { CorteDelMes } from '@/app/(panel)/cobranza/CorteDelMes';
+import { adeudosMenores, simularCorte } from '@/modulos/cobranza/corte';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import {
   cobranzaPorZona,
@@ -50,7 +52,13 @@ export default async function PaginaCobranza({ searchParams }: Props) {
   ]);
 
   const periodoActual = periodos[0];
-  const porZona = periodoActual ? await cobranzaPorZona(periodoActual.id) : [];
+  const [porZona, corte, menores] = await Promise.all([
+    periodoActual ? cobranzaPorZona(periodoActual.id) : Promise.resolve([]),
+    periodoActual
+      ? simularCorte(periodoActual.id)
+      : Promise.resolve({ lista: [], aviso: null as string | null }),
+    adeudosMenores(),
+  ]);
 
   // El mes que toca cobrar es el de hoy, exista ya el periodo o no.
   const ahora = new Date();
@@ -169,6 +177,54 @@ export default async function PaginaCobranza({ searchParams }: Props) {
               </table>
             </div>
           )}
+        </Tarjeta>
+      )}
+
+      {periodoActual && (
+        <Tarjeta
+          titulo={`Corte de ${periodoActual.label}`}
+          descripcion={`A quién le toca quedarse sin servicio. El corte es el ${fecha(
+            periodoActual.cutoff_date,
+          )}.`}
+          className="mb-6"
+        >
+          <CorteDelMes
+            periodoId={periodoActual.id}
+            periodoLabel={periodoActual.label}
+            lista={corte.lista}
+            aviso={corte.aviso}
+          />
+        </Tarjeta>
+      )}
+
+      {menores.length > 0 && (
+        <Tarjeta
+          titulo="Deben una miseria"
+          descripcion="Vencidos, pero por tan poco que no vale la pena cortarlos. A éstos el corte los salta."
+          className="mb-6"
+        >
+          <p className="mb-3 text-sm text-marino-500">
+            Son <strong>{numero(menores.length)}</strong> clientes y entre todos deben{' '}
+            <strong>
+              {pesos(
+                menores.reduce((s, m) => s + m.vencido, 0),
+                true,
+              )}
+            </strong>
+            . Casi siempre son residuos de redondeo que vinieron de los Excel. Conviene limpiarlos
+            una vez y olvidarse.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {menores.slice(0, 30).map((m) => (
+              <Link
+                key={m.customer_id}
+                href={`/clientes/${m.customer_id}`}
+                className="rounded-lg bg-marino-50 px-2.5 py-1 text-xs text-marino-600 hover:bg-marino-100"
+              >
+                {m.full_name} · <strong>{pesos(m.vencido, true)}</strong>
+              </Link>
+            ))}
+          </div>
         </Tarjeta>
       )}
 

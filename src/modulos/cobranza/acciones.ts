@@ -132,6 +132,64 @@ export async function abrirPeriodoYGenerar(
 }
 
 /**
+ * El corte del día 11, de verdad.
+ *
+ * Pide que se escriba cuántos se van a cortar, y compara ese número contra lo
+ * que la base va a hacer antes de hacerlo. Si no coinciden, no corta.
+ *
+ * Suena exagerado, pero es lo único que separa "reviso la lista y aprieto" de
+ * "aprieto y luego veo": entre que se carga la pantalla y que alguien decide,
+ * pudo entrar un pago, y entonces la lista que la persona vio ya no es la que
+ * se va a ejecutar.
+ */
+export async function ejecutarCorte(
+  _anterior: RespuestaCobro | null,
+  datos: FormData,
+): Promise<RespuestaCobro> {
+  const periodo = String(datos.get('periodo') ?? '');
+  const esperados = Number(datos.get('esperados') ?? -1);
+
+  if (!periodo) return { ok: false, mensaje: 'Falta el mes.' };
+  if (!Number.isFinite(esperados) || esperados < 0) {
+    return { ok: false, mensaje: 'Falta cuántos se van a cortar.' };
+  }
+
+  const supabase = await crearClienteServidor();
+
+  const { data: ahora, error: e1 } = await supabase.rpc('suspender_vencidos', {
+    p_period: periodo,
+    p_simular: true,
+  });
+  if (e1) return { ok: false, mensaje: traducirError(e1.message) };
+
+  const cuantos = Array.isArray(ahora) ? ahora.length : 0;
+
+  if (cuantos !== esperados) {
+    return {
+      ok: false,
+      mensaje: `La lista cambió: ahora son ${cuantos} y no ${esperados}. Alguien pagó mientras revisabas. Vuelve a cargar la pantalla y confirma otra vez.`,
+    };
+  }
+
+  const { data, error } = await supabase.rpc('suspender_vencidos', {
+    p_period: periodo,
+    p_simular: false,
+  });
+  if (error) return { ok: false, mensaje: traducirError(error.message) };
+
+  const n = Array.isArray(data) ? data.length : 0;
+
+  revalidatePath('/cobranza');
+  revalidatePath('/clientes');
+  revalidatePath('/tablero');
+
+  return {
+    ok: true,
+    mensaje: `${n} servicios suspendidos. Quedan registrados con fecha y con tu nombre; se reactivan desde el expediente de cada cliente.`,
+  };
+}
+
+/**
  * Los errores de PostgreSQL llegan en inglés y con ruido. Esto los deja en
  * español, porque quien los va a leer es la persona de la oficina, no yo.
  */
