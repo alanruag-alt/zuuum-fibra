@@ -158,6 +158,18 @@ export async function pagosDelCliente(id: string, limite = 24): Promise<PagoRegi
   }));
 }
 
+/** Cuántos servicios activos hay: es a cuántos les va a llegar el cargo del mes. */
+export async function serviciosActivos(): Promise<number> {
+  const supabase = await crearClienteServidor();
+  const { count, error } = await supabase
+    .from('customer_services')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'active');
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
 /** Medianoche de hoy, en formato que entiende PostgREST. */
 function inicioDeHoy(): string {
   const d = new Date();

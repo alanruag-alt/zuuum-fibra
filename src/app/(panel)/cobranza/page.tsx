@@ -6,12 +6,14 @@ import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { Paginacion } from '@/app/(panel)/clientes/Paginacion';
 import { FiltrosMora } from '@/app/(panel)/cobranza/FiltrosMora';
 import { FormaCobro } from '@/app/(panel)/cobranza/FormaCobro';
+import { GenerarMes } from '@/app/(panel)/cobranza/GenerarMes';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import {
   cobranzaPorZona,
   listarMorosos,
   listarPeriodos,
   resumenCobranza,
+  serviciosActivos,
   ultimosPagos,
   POR_PAGINA,
 } from '@/modulos/cobranza/consultas';
@@ -38,25 +40,52 @@ export default async function PaginaCobranza({ searchParams }: Props) {
     pagina,
   };
 
-  const [{ morosos, total }, resumen, zonas, periodos, pagos] = await Promise.all([
+  const [{ morosos, total }, resumen, zonas, periodos, pagos, activos] = await Promise.all([
     listarMorosos(filtros),
     resumenCobranza(),
     listarZonas(),
     listarPeriodos(3),
     ultimosPagos(12),
+    serviciosActivos(),
   ]);
 
   const periodoActual = periodos[0];
   const porZona = periodoActual ? await cobranzaPorZona(periodoActual.id) : [];
 
+  // El mes que toca cobrar es el de hoy, exista ya el periodo o no.
+  const ahora = new Date();
+  const anioHoy = ahora.getFullYear();
+  const mesHoy = ahora.getMonth() + 1;
+  const periodoDeHoy = periodos.find((p) => p.year === anioHoy && p.month === mesHoy);
+  const cargosDelMes = periodoDeHoy
+    ? porZona
+        .filter((z) => z.period_id === periodoDeHoy.id)
+        .reduce((s, z) => s + Number(z.cargos), 0)
+    : 0;
+
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-5">
-        <h1 className="text-xl font-semibold text-marino-800">Cobranza</h1>
-        <p className="mt-1 text-sm text-marino-400">
-          Quién debe, cuánto y desde cuándo. Solo las zonas donde cobras.
-        </p>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-marino-800">Cobranza</h1>
+          <p className="mt-1 text-sm text-marino-400">
+            Quién debe, cuánto y desde cuándo. Solo las zonas donde cobras.
+          </p>
+        </div>
+        <GenerarMes
+          anio={anioHoy}
+          mes={mesHoy}
+          serviciosActivos={activos}
+          yaGenerado={cargosDelMes >= activos && activos > 0}
+        />
       </div>
+
+      {cargosDelMes < activos && (
+        <p className="mb-5 rounded-lg bg-amber-50 px-3 py-2 text-sm text-aviso">
+          Este mes lleva {numero(cargosDelMes)} cargos generados de {numero(activos)} servicios
+          activos. Mientras no se generen, esos clientes no aparecen como que deben.
+        </p>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador
