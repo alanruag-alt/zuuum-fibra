@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 interface Props {
   pagina: number;
@@ -11,6 +11,9 @@ interface Props {
 export function Paginacion({ pagina, porPagina, total }: Props) {
   const router = useRouter();
   const params = useSearchParams();
+  // La ruta sale de dónde está puesta. Antes estaba escrita a mano como
+  // '/clientes', y al reusar el componente en cobranza mandaba al padrón.
+  const ruta = usePathname();
   const paginas = Math.max(1, Math.ceil(total / porPagina));
 
   if (paginas <= 1) return null;
@@ -19,7 +22,8 @@ export function Paginacion({ pagina, porPagina, total }: Props) {
     const q = new URLSearchParams(params.toString());
     if (p <= 1) q.delete('pagina');
     else q.set('pagina', String(p));
-    router.push(`/clientes?${q.toString()}`);
+    const cola = q.toString();
+    router.push(cola ? `${ruta}?${cola}` : ruta);
   }
 
   const desde = (pagina - 1) * porPagina + 1;

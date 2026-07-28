@@ -15,7 +15,9 @@ import {
   TIPO_CARGO,
   TIPO_RED,
 } from '@/modulos/clientes/etiquetas';
-import { fecha, pesos } from '@/lib/formato';
+import { FormaCobro } from '@/app/(panel)/cobranza/FormaCobro';
+import { pagosDelCliente } from '@/modulos/cobranza/consultas';
+import { fecha, fechaHora, pesos } from '@/lib/formato';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,10 +30,18 @@ export default async function ExpedienteCliente({ params }: Props) {
   const cliente = await obtenerCliente(id);
   if (!cliente) notFound();
 
-  const [servicios, cargos] = await Promise.all([serviciosDelCliente(id), cargosDelCliente(id)]);
+  const [servicios, cargos, pagos] = await Promise.all([
+    serviciosDelCliente(id),
+    cargosDelCliente(id),
+    pagosDelCliente(id),
+  ]);
 
   const e = etiquetaEstadoCliente(cliente.status);
   const pendientes = cargos.filter((c) => c.status === 'pending' || c.status === 'partial');
+
+  // Si la base no dejó ver ni cargos ni pagos, esta persona no maneja dinero:
+  // no tiene caso enseñarle un botón de cobrar que le va a rebotar.
+  const veCobranza = cargos.length > 0 || pagos.length > 0;
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -54,6 +64,14 @@ export default async function ExpedienteCliente({ params }: Props) {
             {cliente.phone && <> · {cliente.phone}</>}
           </p>
         </div>
+
+        {veCobranza && (
+          <FormaCobro
+            clienteId={cliente.id}
+            clienteNombre={cliente.full_name}
+            adeudo={Number(cliente.adeudo ?? 0)}
+          />
+        )}
       </div>
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -159,6 +177,48 @@ export default async function ExpedienteCliente({ params }: Props) {
           )}
         </Tarjeta>
       </div>
+
+      {pagos.length > 0 && (
+        <Tarjeta titulo="Pagos" descripcion="Lo que ha entregado." className="mt-5">
+          <div className="max-h-[320px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-marino-100">
+                  {['Recibo', 'Importe', 'Forma', 'Cuándo'].map((h) => (
+                    <th
+                      key={h}
+                      className="px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-marino-400"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-marino-100">
+                {pagos.map((p) => (
+                  <tr key={p.id} className={p.status === 'cancelled' ? 'opacity-50' : undefined}>
+                    <td className="px-2 py-2 font-mono text-xs text-marino-600">
+                      {p.receipt_number}
+                      {p.status === 'cancelled' && (
+                        <span className="ml-2">
+                          <Insignia tono="falla">cancelado</Insignia>
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 font-medium text-marino-800">
+                      {pesos(p.amount, true)}
+                    </td>
+                    <td className="px-2 py-2 text-marino-500">
+                      {p.method === 'cash' ? 'Efectivo' : 'Transferencia'}
+                    </td>
+                    <td className="px-2 py-2 text-marino-500">{fechaHora(p.paid_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Tarjeta>
+      )}
 
       <p className="mt-6 text-xs text-marino-300">
         Lo que falta en este expediente: instalaciones, tickets, equipo instalado y de qué punto de

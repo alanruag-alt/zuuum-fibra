@@ -67,7 +67,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/cobranza',
         icono: '💰',
         permiso: 'payments.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'corte',
