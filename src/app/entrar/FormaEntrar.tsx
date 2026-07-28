@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Boton } from '@/componentes/ui/Boton';
 import { crearClienteNavegador } from '@/lib/supabase/cliente';
-import { haySupabase } from '@/lib/supabase/configurado';
+import { haySupabase, motivoSinSupabase } from '@/lib/supabase/configurado';
 
 const CAMPO =
   'w-full rounded-lg border border-marino-200 px-3 py-2.5 text-sm text-marino-800 placeholder:text-marino-300 focus:border-naranja-400';
@@ -51,6 +51,8 @@ export function FormaEntrar() {
   }
 
   if (!configurado) {
+    const motivo = motivoSinSupabase();
+
     return (
       <div className="space-y-4 text-center">
         <p className="text-3xl">🔌</p>
@@ -59,6 +61,11 @@ export function FormaEntrar() {
           El proyecto de Supabase no está configurado, así que aún no hay cuentas contra las cuales
           entrar. Mientras tanto puedes recorrer el panel en modo demostración.
         </p>
+        {motivo && (
+          <p className="rounded-lg bg-marino-50 px-3 py-2 text-left text-xs text-marino-600">
+            <strong>Qué falta:</strong> {motivo}
+          </p>
+        )}
         <Link
           href="/tablero"
           className="inline-block rounded-lg bg-naranja-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-naranja-600"

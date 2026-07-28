@@ -117,13 +117,23 @@ Para ver el detalle por zona y mes: `CUADRE_DETALLE.sql`.
 
 En `zuuum-fibra`, copia `.env.example` como `.env.local` y llena:
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://fpldehpjnjpqbqdufppt.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=  ← Settings → API → anon public
-SUPABASE_SERVICE_ROLE_KEY=      ← Settings → API → service_role
+| Variable | De dónde sale | Cómo se ve |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Settings → API → Project URL | `https://xxxxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Settings → API → anon / publishable | empieza con `eyJ` o `sb_publishable_` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Settings → API → service_role / secret | empieza con `eyJ` o `sb_secret_` |
+
+**Después del `=` va solo el valor, pegado.** Sin flechas, sin comillas, sin texto. Si pegas
+otra cosa, el panel se queda en modo demostración y te dice en pantalla qué está mal — no te
+deja con un error de conexión sin explicación.
+
+Luego, **parado dentro de la carpeta `zuuum-fibra`**:
+
+```powershell
+npm run dev
 ```
 
-Luego `npm run dev`. El modo demostración se apaga solo y ya te pide contraseña de verdad.
+Y abre <http://localhost:3000>. El modo demostración se apaga solo y ya pide contraseña.
 
 ---
 
