@@ -72,25 +72,18 @@ Si sale alguna tabla, esa quedó sin protección. Mándamela.
 Las migraciones **no crean usuarios**. Eso lo haces tú, para que la primera contraseña
 del sistema no haya pasado por ningún lado.
 
-1. *Authentication → Users → Add user* → tu correo y una contraseña
-2. Copia el **UUID** que aparece
-3. En el SQL Editor, cambiando las dos primeras líneas:
+1. *Authentication → Users → **Add user*** → tu correo y una contraseña
+2. Pega `CREAR_PROPIETARIO.sql` en el SQL Editor
+3. Cambia **solo las dos líneas marcadas con ←** (tu correo y tu nombre) → **Run**
 
-```sql
--- Pon aquí tu UUID
-insert into public.profiles (id, org_id, full_name, email)
-values ('PEGA-AQUI-TU-UUID',
-        '00000000-0000-0000-0000-000000000001',
-        'Alan Ramos',
-        'alan@panelzuuumfibra.com');
+**No hay que copiar el UUID.** El script lo busca solo por el correo. Un UUID tiene 36
+caracteres en cinco grupos —`8-4-4-4-12`— y basta perder uno al copiar para que reviente
+con un error que no dice qué pasó.
 
-insert into public.user_roles (user_id, role_id)
-select 'PEGA-AQUI-TU-UUID', id from public.roles where code = 'owner';
-```
+Si el correo no existe todavía, el script te dice cuáles sí están dados de alta.
 
-Quedas como **Propietario**, con alcance total. Desde ahí das de alta a los demás.
-
----
+Al terminar debe salir una tabla con tu nombre, el rol **Propietario**, alcance `all`
+y **43 permisos**.
 
 ## Paso 4 · El padrón
 
@@ -139,6 +132,7 @@ Luego `npm run dev`. El modo demostración se apaga solo y ya te pide contraseñ
 | Archivo | Para qué |
 |---|---|
 | `ESQUEMA_COMPLETO.sql` | Todo el esquema, un solo pegado |
+| `CREAR_PROPIETARIO.sql` | Tu usuario, sin copiar UUID |
 | `CARGA_1_DATOS.sql` | Los datos del Excel a una tabla de paso |
 | `CARGA_2_PROCESAR.sql` | Los convierte en clientes y cobranza |
 | `CUADRE.sql` | Comprobar que cuadró |
