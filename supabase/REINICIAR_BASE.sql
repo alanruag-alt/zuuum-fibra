@@ -1,33 +1,20 @@
 -- ============================================================================
 --  ⚠  REINICIAR LA BASE — BORRA TODO
 -- ----------------------------------------------------------------------------
---  Esto elimina TODAS las tablas, datos, políticas y funciones de ZUUUM FIBRA.
+--  Esto elimina TODAS las tablas, datos y políticas de ZUUUM FIBRA.
 --  No hay deshacer.
 --
---  Úsalo solo si:
---    · algo salió mal a media instalación y quieres empezar limpio, o
---    · estás en una base de pruebas.
+--  Úsalo solo si algo salió mal a media instalación y quieres empezar limpio.
+--  NUNCA en la base que ya trae los clientes de verdad.
 --
---  NUNCA lo corras en la base que ya trae los clientes de verdad.
---
---  Las cuentas de Authentication NO se tocan: viven en el esquema `auth`,
---  que este archivo no toca. Tus usuarios siguen ahí.
+--  Tus cuentas de Authentication NO se tocan: viven en el esquema `auth`,
+--  que este archivo ni menciona.
 -- ============================================================================
-
--- Descomenta la línea de abajo para confirmar que sabes lo que haces.
--- Mientras esté comentada, este archivo no hace nada.
-
--- \set BORRAR_DE_VERDAD 1
-
-do $$
-begin
-  if current_setting('is_superuser') is null then null; end if;
-  raise notice 'Si ves esto y no descomentaste la línea, no pasó nada. Bien.';
-end $$;
-
--- ----------------------------------------------------------------------------
--- Para borrar de verdad, quita los guiones de las tres líneas siguientes:
--- ----------------------------------------------------------------------------
+--
+--  Para usarlo: quita los tres guiones dobles de las últimas tres líneas
+--  y pégalo en el SQL Editor. Mientras estén comentadas, no hace nada.
+--
+-- ============================================================================
 
 -- drop schema public cascade;
 -- create schema public;
