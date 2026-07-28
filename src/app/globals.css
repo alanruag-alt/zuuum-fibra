@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-marino-50 text-marino-800 antialiased;
+  }
+
+  /* Que el foco se vea: hay gente que navega con teclado. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-naranja-500 ring-offset-2;
+  }
+
+  ::selection {
+    @apply bg-naranja-200 text-marino-900;
+  }
+}

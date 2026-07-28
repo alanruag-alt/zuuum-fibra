@@ -1,0 +1,135 @@
+# Cómo montar la base en Supabase
+
+Proyecto: `fpldehpjnjpqbqdufppt` · región `us-east-1`
+
+Todo está probado contra PostgreSQL 16. Son **tres pegados** en el SQL Editor.
+
+---
+
+## Antes de nada: apaga el registro público
+
+*Authentication → Providers → Email* → desactiva **Enable email signups** y las
+confirmaciones por correo.
+
+Este es un sistema interno: **las cuentas las crea el administrador**, nadie se registra
+solo. Si esto se queda prendido, cualquiera con tu URL se puede dar de alta.
+
+---
+
+## Paso 1 · El esquema
+
+SQL Editor → *New query* → pega **todo** `ESQUEMA_COMPLETO.sql` → **Run**.
+
+Tarda entre 10 y 30 segundos. Debe decir *Success. No rows returned.*
+
+Deja: **53 tablas · 91 políticas de seguridad · 131 índices · 43 permisos · 7 roles ·
+tus 12 zonas · 14 ajustes.**
+
+Si lo pegas dos veces por accidente, se detiene solo con un aviso claro y **no toca nada**.
+
+---
+
+## Paso 2 · Comprobar que quedó bien
+
+Pega esto en otra consulta:
+
+```sql
+select 'tablas' as que, count(*) from pg_tables where schemaname='public'
+union all select 'politicas', count(*) from pg_policies where schemaname='public'
+union all select 'permisos',  count(*) from public.permissions
+union all select 'roles',     count(*) from public.roles
+union all select 'zonas',     count(*) from public.zones
+union all select 'ajustes',   count(*) from public.settings;
+```
+
+Esperado: **53 · 91 · 43 · 7 · 12 · 14**
+
+Y esta, que es la importante — **no debe devolver ni un renglón**:
+
+```sql
+select tablename from pg_tables t
+ where schemaname='public'
+   and not exists (select 1 from pg_class c
+                     join pg_namespace n on n.oid=c.relnamespace
+                    where n.nspname='public' and c.relname=t.tablename
+                      and c.relrowsecurity);
+```
+
+Si sale alguna tabla, esa quedó sin protección. Mándamela.
+
+---
+
+## Paso 3 · Tu usuario
+
+Las migraciones **no crean usuarios**. Eso lo haces tú, para que la primera contraseña
+del sistema no haya pasado por ningún lado.
+
+1. *Authentication → Users → Add user* → tu correo y una contraseña
+2. Copia el **UUID** que aparece
+3. En el SQL Editor, cambiando las dos primeras líneas:
+
+```sql
+-- Pon aquí tu UUID
+insert into public.profiles (id, org_id, full_name, email)
+values ('PEGA-AQUI-TU-UUID',
+        '00000000-0000-0000-0000-000000000001',
+        'Alan Ramos',
+        'alan@panelzuuumfibra.com');
+
+insert into public.user_roles (user_id, role_id)
+select 'PEGA-AQUI-TU-UUID', id from public.roles where code = 'owner';
+```
+
+Quedas como **Propietario**, con alcance total. Desde ahí das de alta a los demás.
+
+---
+
+## Paso 4 · El padrón
+
+Pega **todo** `CARGA_PADRON.sql` → **Run**. Tarda unos 2 segundos.
+
+Luego pega `CUADRE.sql`. **Las ocho líneas deben decir CUADRA:**
+
+| | |
+|---|---|
+| Clientes | 1,102 |
+| Servicios | 1,102 |
+| Con precio | 935 |
+| Sin precio | 167 |
+| Ingreso mensual | $398,588 |
+| Marcas de pago | 10,705 |
+| Clientes con 2 servicios | 0 |
+| IP capturadas | 891 |
+
+Si alguna dice *REVISAR*, párale y mándame la captura.
+
+Para ver el detalle por zona y mes: `CUADRE_DETALLE.sql`.
+
+---
+
+## Conectar el panel web
+
+En `zuuum-fibra`, copia `.env.example` como `.env.local` y llena:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://fpldehpjnjpqbqdufppt.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=  ← Settings → API → anon public
+SUPABASE_SERVICE_ROLE_KEY=      ← Settings → API → service_role
+```
+
+Luego `npm run dev`. El modo demostración se apaga solo y ya te pide contraseña de verdad.
+
+---
+
+## Los archivos
+
+| Archivo | Para qué |
+|---|---|
+| `ESQUEMA_COMPLETO.sql` | Todo el esquema, un solo pegado |
+| `CARGA_PADRON.sql` | Los 1,102 clientes |
+| `CUADRE.sql` | Comprobar que cuadró |
+| `CUADRE_DETALLE.sql` | Ver por zona y por mes |
+| `CALIDAD_DE_DATOS.md` | Lo que hay que arreglar del Excel |
+| `REINICIAR_BASE.sql` | ⚠ Borra todo. Solo si algo sale mal |
+| `migraciones/` | Las 17 por separado, por si hace falta ver una |
+| `pruebas/` | Las pruebas de seguridad |

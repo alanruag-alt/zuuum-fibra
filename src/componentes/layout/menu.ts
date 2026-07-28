@@ -1,0 +1,201 @@
+import type { GrupoMenu } from '@/tipos/navegacion';
+
+/**
+ * El menú sale del plan maestro. Los módulos que todavía no existen se
+ * dibujan apagados, para que se vea a dónde va el sistema.
+ */
+export const MENU: GrupoMenu[] = [
+  {
+    titulo: 'Operación',
+    elementos: [
+      {
+        id: 'tablero',
+        etiqueta: 'Tablero',
+        ruta: '/tablero',
+        icono: '▦',
+        permiso: null,
+        listo: true,
+      },
+      {
+        id: 'clientes',
+        etiqueta: 'Clientes',
+        ruta: '/clientes',
+        icono: '👥',
+        permiso: 'customers.read',
+        listo: false,
+      },
+      {
+        id: 'prospectos',
+        etiqueta: 'Prospectos',
+        ruta: '/prospectos',
+        icono: '🌱',
+        permiso: 'prospects.read',
+        listo: false,
+      },
+      {
+        id: 'ordenes',
+        etiqueta: 'Órdenes de trabajo',
+        ruta: '/ordenes',
+        icono: '🧰',
+        permiso: 'orders.read',
+        listo: false,
+      },
+      {
+        id: 'agenda',
+        etiqueta: 'Agenda',
+        ruta: '/agenda',
+        icono: '📅',
+        permiso: 'orders.read',
+        listo: false,
+      },
+      {
+        id: 'tickets',
+        etiqueta: 'Tickets',
+        ruta: '/tickets',
+        icono: '🎫',
+        permiso: 'tickets.read',
+        listo: false,
+      },
+    ],
+  },
+  {
+    titulo: 'Dinero',
+    elementos: [
+      {
+        id: 'cobranza',
+        etiqueta: 'Cobranza',
+        ruta: '/cobranza',
+        icono: '💰',
+        permiso: 'payments.read',
+        listo: false,
+      },
+      {
+        id: 'corte',
+        etiqueta: 'Corte de caja',
+        ruta: '/corte-de-caja',
+        icono: '🧾',
+        permiso: 'cash.read',
+        listo: false,
+      },
+      {
+        id: 'planes',
+        etiqueta: 'Planes',
+        ruta: '/planes',
+        icono: '📶',
+        permiso: 'plans.read',
+        listo: false,
+      },
+      {
+        id: 'contratos',
+        etiqueta: 'Contratos',
+        ruta: '/contratos',
+        icono: '📄',
+        permiso: 'contracts.read',
+        listo: false,
+      },
+    ],
+  },
+  {
+    titulo: 'Red',
+    elementos: [
+      {
+        id: 'ftth',
+        etiqueta: 'Red FTTH',
+        ruta: '/red/ftth',
+        icono: '🕸️',
+        permiso: 'network.read',
+        listo: false,
+      },
+      {
+        id: 'wisp',
+        etiqueta: 'Red WISP',
+        ruta: '/red/wisp',
+        icono: '📡',
+        permiso: 'network.read',
+        listo: false,
+      },
+      {
+        id: 'equipos',
+        etiqueta: 'Equipos de red',
+        ruta: '/red/equipos',
+        icono: '🖧',
+        permiso: 'network.read',
+        listo: false,
+      },
+      {
+        id: 'mapa',
+        etiqueta: 'Mapa',
+        ruta: '/mapa',
+        icono: '🗺️',
+        permiso: 'network.read',
+        listo: false,
+      },
+    ],
+  },
+  {
+    titulo: 'Almacén',
+    elementos: [
+      {
+        id: 'inventario',
+        etiqueta: 'Inventario',
+        ruta: '/inventario',
+        icono: '📦',
+        permiso: 'inventory.read',
+        listo: false,
+      },
+      {
+        id: 'equipos-serie',
+        etiqueta: 'Equipos con serie',
+        ruta: '/inventario/series',
+        icono: '🏷️',
+        permiso: 'inventory.read',
+        listo: false,
+      },
+    ],
+  },
+  {
+    titulo: 'Administración',
+    elementos: [
+      {
+        id: 'reportes',
+        etiqueta: 'Reportes',
+        ruta: '/reportes',
+        icono: '📈',
+        permiso: 'reports.read',
+        listo: false,
+      },
+      {
+        id: 'usuarios',
+        etiqueta: 'Usuarios y permisos',
+        ruta: '/usuarios',
+        icono: '🔑',
+        permiso: 'users.read',
+        listo: false,
+      },
+      {
+        id: 'zonas',
+        etiqueta: 'Zonas',
+        ruta: '/zonas',
+        icono: '📍',
+        permiso: 'zones.read',
+        listo: false,
+      },
+      {
+        id: 'ajustes',
+        etiqueta: 'Configuración',
+        ruta: '/ajustes',
+        icono: '⚙️',
+        permiso: 'settings.read',
+        listo: false,
+      },
+      {
+        id: 'auditoria',
+        etiqueta: 'Auditoría',
+        ruta: '/auditoria',
+        icono: '🔍',
+        permiso: 'audit.read',
+        listo: false,
+      },
+    ],
+  },
+];
