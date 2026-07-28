@@ -75,7 +75,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/corte-de-caja',
         icono: '🧾',
         permiso: 'cash.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'planes',
