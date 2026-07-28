@@ -27,7 +27,7 @@ Pega **todo** `ESQUEMA_COMPLETO.sql` → **Run**.
 
 Tarda entre 10 y 30 segundos. Debe decir *Success. No rows returned.*
 
-Deja: **53 tablas · 91 políticas de seguridad · 131 índices · 43 permisos · 7 roles ·
+Deja: **53 tablas · 95 políticas de seguridad · 131 índices · 43 permisos · 7 roles ·
 tus 12 zonas · 14 ajustes.**
 
 Si lo pegas dos veces por accidente, se detiene solo con un aviso claro y **no toca nada**.
@@ -47,7 +47,7 @@ union all select 'zonas',     count(*) from public.zones
 union all select 'ajustes',   count(*) from public.settings;
 ```
 
-Esperado: **53 · 91 · 43 · 7 · 12 · 14**
+Esperado: **53 · 95 · 43 · 7 · 12 · 14**
 
 Y esta, que es la importante — **no debe devolver ni un renglón**:
 
@@ -61,6 +61,9 @@ select tablename from pg_tables t
 ```
 
 Si sale alguna tabla, esa quedó sin protección. Mándamela.
+
+> Esta consulta ya sirvió de algo: la primera vez destapó que las cuatro particiones del
+> historial de señal quedaban abiertas. Está corregido en la migración 018.
 
 ---
 
