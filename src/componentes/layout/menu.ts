@@ -22,7 +22,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/clientes',
         icono: '👥',
         permiso: 'customers.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'prospectos',
