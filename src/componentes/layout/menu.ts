@@ -83,7 +83,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/planes',
         icono: '📶',
         permiso: 'plans.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'contratos',
@@ -170,7 +170,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/usuarios',
         icono: '🔑',
         permiso: 'users.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'zonas',
@@ -178,7 +178,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/zonas',
         icono: '📍',
         permiso: 'zones.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'ajustes',
@@ -186,7 +186,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/ajustes',
         icono: '⚙️',
         permiso: 'settings.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'auditoria',
@@ -194,7 +194,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/auditoria',
         icono: '🔍',
         permiso: 'audit.read',
-        listo: false,
+        listo: true,
       },
     ],
   },
