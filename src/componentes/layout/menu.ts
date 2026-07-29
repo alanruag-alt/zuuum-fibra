@@ -162,7 +162,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/reportes',
         icono: '📈',
         permiso: 'reports.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'usuarios',

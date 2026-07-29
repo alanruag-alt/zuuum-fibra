@@ -340,8 +340,14 @@ export default async function PaginaCobranza({ searchParams }: Props) {
               <tbody className="divide-y divide-marino-100">
                 {pagos.map((p) => (
                   <tr key={p.id} className={p.status === 'cancelled' ? 'opacity-50' : undefined}>
-                    <td className="px-3 py-2.5 font-mono text-xs text-marino-600">
-                      {p.receipt_number}
+                    <td className="px-3 py-2.5 font-mono text-xs">
+                      <Link
+                        href={`/recibo/${p.id}`}
+                        className="text-naranja-600 hover:underline"
+                        title="Ver el recibo para imprimir"
+                      >
+                        {p.receipt_number}
+                      </Link>
                       {p.status === 'cancelled' && (
                         <span className="ml-2">
                           <Insignia tono="falla">cancelado</Insignia>
