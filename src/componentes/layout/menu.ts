@@ -30,7 +30,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/prospectos',
         icono: '🌱',
         permiso: 'prospects.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'ordenes',
@@ -38,7 +38,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/ordenes',
         icono: '🧰',
         permiso: 'orders.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'agenda',
@@ -54,7 +54,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/tickets',
         icono: '🎫',
         permiso: 'tickets.read',
-        listo: false,
+        listo: true,
       },
     ],
   },
