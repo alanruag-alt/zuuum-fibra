@@ -1,8 +1,9 @@
 import type { GrupoMenu } from '@/tipos/navegacion';
 
 /**
- * El menú sale del plan maestro. Los módulos que todavía no existen se
- * dibujan apagados, para que se vea a dónde va el sistema.
+ * El menú sale del plan maestro. Todos los módulos están construidos; `listo`
+ * se queda porque el día que se agregue uno nuevo, se dibuja apagado hasta que
+ * exista de verdad en vez de llevar a una pantalla en blanco.
  */
 export const MENU: GrupoMenu[] = [
   {
@@ -46,7 +47,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/agenda',
         icono: '📅',
         permiso: 'orders.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'tickets',
@@ -91,7 +92,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/contratos',
         icono: '📄',
         permiso: 'contracts.read',
-        listo: false,
+        listo: true,
       },
     ],
   },
@@ -104,7 +105,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/red/ftth',
         icono: '🕸️',
         permiso: 'network.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'wisp',
@@ -112,7 +113,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/red/wisp',
         icono: '📡',
         permiso: 'network.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'equipos',
@@ -120,7 +121,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/red/equipos',
         icono: '🖧',
         permiso: 'network.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'mapa',
@@ -128,7 +129,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/mapa',
         icono: '🗺️',
         permiso: 'network.read',
-        listo: false,
+        listo: true,
       },
     ],
   },
@@ -141,7 +142,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/inventario',
         icono: '📦',
         permiso: 'inventory.read',
-        listo: false,
+        listo: true,
       },
       {
         id: 'equipos-serie',
@@ -149,7 +150,7 @@ export const MENU: GrupoMenu[] = [
         ruta: '/inventario/series',
         icono: '🏷️',
         permiso: 'inventory.read',
-        listo: false,
+        listo: true,
       },
     ],
   },

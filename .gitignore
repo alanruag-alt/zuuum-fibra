@@ -30,3 +30,6 @@ yarn-error.log*
 /datos-reales/
 *.xlsx
 *.csv
+
+# Carpeta de descarte: el puente no puede borrar, solo mover aqui.
+_to_delete/
