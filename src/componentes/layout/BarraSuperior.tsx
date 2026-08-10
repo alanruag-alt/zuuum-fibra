@@ -17,7 +17,12 @@ export function BarraSuperior({ nombre, rol, alAbrirMenu }: Props) {
     .join('');
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-marino-100 bg-white/90 px-4 backdrop-blur sm:px-6">
+    // La barra es pegajosa y opaca a propósito. Antes era translúcida con
+    // backdrop-blur, y eso obliga al navegador a volver a desenfocar todo lo
+    // que pasa por detrás en CADA cuadro del desplazamiento. En una máquina
+    // con gráficos integrados —la de la oficina— eso se siente como que el
+    // sistema va lento. Blanco sólido: se ve casi igual y el scroll queda liso.
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-marino-100 bg-white px-4 sm:px-6">
       <button
         onClick={alAbrirMenu}
         className="grid h-9 w-9 place-items-center rounded-lg text-marino-500 hover:bg-marino-50 lg:hidden"

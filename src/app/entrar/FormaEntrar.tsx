@@ -10,6 +10,46 @@ import { haySupabase, motivoSinSupabase } from '@/lib/supabase/configurado';
 const CAMPO =
   'w-full rounded-lg border border-marino-200 px-3 py-2.5 text-sm text-marino-800 placeholder:text-marino-300 focus:border-naranja-400';
 
+/**
+ * Por qué no entró.
+ *
+ * Cuando de verdad fue el usuario o la contraseña, no se dice cuál de los dos:
+ * eso le serviría a quien esté probando cuentas ajenas.
+ *
+ * Pero todo lo demás SÍ se dice con nombre y apellido. Antes cualquier fallo
+ * salía como «contraseña incorrecta», y eso deja al usuario intentando otra
+ * vez con la contraseña correcta, sin manera de saber que el problema era que
+ * su correo no estaba confirmado o que ya había demasiados intentos. Un
+ * mensaje que no distingue no protege nada; solo hace el problema imposible
+ * de arreglar.
+ */
+function traducirFallo(mensaje: string, estado?: number): string {
+  const m = (mensaje || '').toLowerCase();
+
+  if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+    return (
+      'La cuenta existe, pero el correo no está confirmado. Entra a Supabase → ' +
+      'Authentication → Users, abre tu usuario y confírmalo. La contraseña está bien.'
+    );
+  }
+  if (m.includes('rate limit') || m.includes('too many') || estado === 429) {
+    return 'Demasiados intentos seguidos. Espera un minuto y vuelve a intentar.';
+  }
+  if (m.includes('user is banned') || m.includes('banned')) {
+    return 'Esa cuenta está bloqueada en Supabase.';
+  }
+  if (m.includes('signups not allowed') || m.includes('disabled')) {
+    return 'El inicio de sesión con contraseña está apagado en Supabase.';
+  }
+  if (m.includes('failed to fetch') || m.includes('network') || estado === 0) {
+    return 'No se pudo llegar a Supabase. Revisa tu conexión a internet.';
+  }
+  if (m.includes('invalid api key') || m.includes('api key')) {
+    return 'La llave de Supabase en .env.local no es válida para este proyecto.';
+  }
+  return 'Correo o contraseña incorrectos.';
+}
+
 export function FormaEntrar() {
   const router = useRouter();
   const parametros = useSearchParams();
@@ -35,9 +75,7 @@ export function FormaEntrar() {
       });
 
       if (fallo) {
-        // No se dice si falló el correo o la contraseña: eso ayudaría a quien
-        // esté probando cuentas ajenas.
-        setError('Correo o contraseña incorrectos.');
+        setError(traducirFallo(fallo.message, fallo.status));
         return;
       }
 
