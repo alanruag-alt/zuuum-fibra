@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { Indicador } from '@/componentes/ui/Indicador';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
-import { puntosDelMapa } from '@/modulos/red/consultas';
+import { postesDelMapa, puntosDelMapa, trazosDelMapa } from '@/modulos/red/consultas';
 import { numero } from '@/lib/formato';
 
 export const dynamic = 'force-dynamic';
+
+/** Un color por cable, para poder seguir cada uno con la vista. */
+const TRAZO = ['#f2820c', '#16a34a', '#2563eb', '#db2777', '#0ea5e9', '#7c3aed'];
 
 const COLOR: Record<string, string> = {
   ok: '#16a34a',
@@ -25,10 +28,15 @@ const COLOR: Record<string, string> = {
  * de qué NAP colgar a alguien o a qué torre subir.
  */
 export default async function PaginaMapa() {
-  const puntos = await puntosDelMapa();
+  const [infra, postes, trazos] = await Promise.all([
+    puntosDelMapa(),
+    postesDelMapa(),
+    trazosDelMapa(),
+  ]);
+  const puntos = [...infra, ...postes];
 
   const sitios = puntos.filter((p) => p.clase === 'sitio');
-  const elementos = puntos.filter((p) => p.clase === 'elemento');
+  const cuantosPostes = puntos.filter((p) => p.clase === 'poste').length;
   const alarmados = puntos.filter((p) => p.tono === 'falla');
 
   if (puntos.length === 0) {
@@ -58,8 +66,10 @@ export default async function PaginaMapa() {
   // Proyección sencilla. A esta escala —un municipio— la Tierra es plana para
   // fines prácticos; lo único que hay que corregir es que un grado de longitud
   // mide menos que uno de latitud conforme uno se aleja del ecuador.
-  const lats = puntos.map((p) => p.lat);
-  const lons = puntos.map((p) => p.lon);
+  // El encuadre toma también los trazos: si un cable sale del área donde hay
+  // puntos, se saldría del dibujo y parecería cortado.
+  const lats = [...puntos.map((p) => p.lat), ...trazos.flatMap((t) => t.puntos.map((q) => q[0]))];
+  const lons = [...puntos.map((p) => p.lon), ...trazos.flatMap((t) => t.puntos.map((q) => q[1]))];
   const latMin = Math.min(...lats);
   const latMax = Math.max(...lats);
   const lonMin = Math.min(...lons);
@@ -97,16 +107,13 @@ export default async function PaginaMapa() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador valor={numero(sitios.length)} etiqueta="Sitios en el mapa" tono="marca" />
-        <Indicador valor={numero(elementos.length)} etiqueta="Elementos FTTH" />
+        <Indicador valor={numero(trazos.length)} etiqueta="Cables dibujados" />
         <Indicador
           valor={numero(alarmados.length)}
           etiqueta="Con problema"
           tono={alarmados.length > 0 ? 'falla' : 'ok'}
         />
-        <Indicador
-          valor={`${(metrosAncho / 1000).toFixed(1)} km`}
-          etiqueta="Ancho de lo dibujado"
-        />
+        <Indicador valor={numero(cuantosPostes)} etiqueta="Postes" />
       </div>
 
       <Tarjeta>
@@ -122,6 +129,12 @@ export default async function PaginaMapa() {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-3 w-3 rounded-full bg-falla" /> llena o caída
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#1e40af]" /> poste
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-0.5 w-5 bg-naranja-500" /> cable
           </span>
         </div>
 
@@ -139,13 +152,44 @@ export default async function PaginaMapa() {
             </defs>
             <rect width={W} height={H} fill="url(#cuadricula)" />
 
+            {/* Primero los cables: van abajo de todo, como en la calle. */}
+            {trazos.map((t, i) => (
+              <g key={t.id}>
+                <path
+                  d={t.puntos
+                    .map(
+                      (q, j) =>
+                        `${j === 0 ? 'M' : 'L'} ${x(q[1]).toFixed(1)} ${y(q[0]).toFixed(1)}`,
+                    )
+                    .join(' ')}
+                  fill="none"
+                  stroke={t.color ?? TRAZO[i % TRAZO.length]}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.85"
+                />
+                <text
+                  x={x(t.puntos[0][1])}
+                  y={y(t.puntos[0][0]) - 6}
+                  fontSize="10"
+                  fontWeight="600"
+                  fill={t.color ?? TRAZO[i % TRAZO.length]}
+                >
+                  {t.codigo}
+                </text>
+              </g>
+            ))}
+
             {puntos.map((p) => {
               const px = x(p.lon);
               const py = y(p.lat);
               const color = COLOR[p.tono] ?? COLOR.neutro;
               return (
                 <g key={p.id}>
-                  {p.clase === 'sitio' ? (
+                  {p.clase === 'poste' ? (
+                    <circle cx={px} cy={py} r={3} fill="#1e40af" />
+                  ) : p.clase === 'sitio' ? (
                     <rect
                       x={px - 7}
                       y={py - 7}
@@ -159,15 +203,15 @@ export default async function PaginaMapa() {
                   )}
                   <text
                     x={px}
-                    y={py - (p.clase === 'sitio' ? 14 : 11)}
+                    y={py - (p.clase === 'sitio' ? 14 : p.clase === 'poste' ? 6 : 11)}
                     textAnchor="middle"
-                    fontSize="11"
+                    fontSize={p.clase === 'poste' ? 8 : 11}
                     fontWeight={p.clase === 'sitio' ? 600 : 400}
-                    fill="#334155"
+                    fill={p.clase === 'poste' ? '#64748b' : '#334155'}
                   >
                     {p.nombre}
                   </text>
-                  {p.detalle && (
+                  {p.detalle && p.clase !== 'poste' && (
                     <text x={px} y={py + 19} textAnchor="middle" fontSize="9.5" fill="#94a3b8">
                       {p.detalle}
                     </text>

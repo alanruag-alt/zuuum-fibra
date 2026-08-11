@@ -1,6 +1,6 @@
 import 'server-only';
 import { crearClienteServidor } from '@/lib/supabase/servidor';
-import type { Dispositivo, ElementoRed, Punto, Sitio } from '@/modulos/red/tipos';
+import type { Dispositivo, ElementoRed, Punto, Sitio, Trazo } from '@/modulos/red/tipos';
 
 export async function listarElementos(tipos?: string[]): Promise<ElementoRed[]> {
   const supabase = await crearClienteServidor();
@@ -77,4 +77,59 @@ export async function puntosDelMapa(): Promise<Punto[]> {
   }
 
   return puntos;
+}
+
+/**
+ * Los trazos de los cables, para dibujarlos y no solo marcar sus extremos.
+ *
+ * Un mapa con puntos sueltos no dice por dónde va la fibra; con la línea, sí.
+ * Es la diferencia entre saber que hay una NAP en esa calle y saber por cuál
+ * banqueta subió el cable.
+ */
+export async function trazosDelMapa(): Promise<Trazo[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase
+    .from('fiber_cables')
+    .select('id, code, path, plan_color, zones(name)')
+    .eq('is_active', true)
+    .not('path', 'is', null);
+
+  if (error) return [];
+
+  return ((data ?? []) as unknown as Record<string, unknown>[])
+    .map((c) => {
+      const z = Array.isArray(c.zones) ? c.zones[0] : c.zones;
+      const pts = (c.path as [number, number][] | null) ?? [];
+      return {
+        id: c.id as string,
+        codigo: c.code as string,
+        color: (c.plan_color as string) ?? null,
+        zona: (z as { name?: string })?.name ?? null,
+        puntos: pts,
+      };
+    })
+    .filter((t) => t.puntos.length >= 2);
+}
+
+/** Los postes con coordenadas, para que el mapa muestre por dónde va colgada. */
+export async function postesDelMapa(): Promise<Punto[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase
+    .from('v_postes')
+    .select('id, number, latitude, longitude, cable, is_new')
+    .eq('is_active', true)
+    .not('latitude', 'is', null)
+    .limit(3000);
+
+  if (error) return [];
+
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((p) => ({
+    id: `p:${p.id as string}`,
+    clase: 'poste' as const,
+    nombre: String(p.number ?? ''),
+    detalle: (p.cable as string) ?? null,
+    lat: Number(p.latitude),
+    lon: Number(p.longitude),
+    tono: (p.is_new ? 'aviso' : 'neutro') as 'aviso' | 'neutro',
+  }));
 }

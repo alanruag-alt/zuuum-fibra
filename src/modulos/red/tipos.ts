@@ -54,10 +54,19 @@ export interface Sitio {
 /** Un punto cualquiera para el mapa. */
 export interface Punto {
   id: string;
-  clase: 'sitio' | 'elemento' | 'cliente';
+  clase: 'sitio' | 'elemento' | 'cliente' | 'poste';
   nombre: string;
   detalle: string | null;
   lat: number;
   lon: number;
   tono: 'ok' | 'aviso' | 'falla' | 'neutro' | 'marca';
+}
+
+/** El recorrido dibujable de un cable. */
+export interface Trazo {
+  id: string;
+  codigo: string;
+  color: string | null;
+  zona: string | null;
+  puntos: [number, number][];
 }
