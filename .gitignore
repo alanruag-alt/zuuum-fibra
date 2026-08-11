@@ -33,3 +33,8 @@ yarn-error.log*
 
 # Carpeta de descarte: el puente no puede borrar, solo mover aqui.
 _to_delete/
+
+# La ruta de descarga se llama «fusiones.xlsx» y es una carpeta, no un Excel:
+# el patrón *.xlsx de arriba se la comía y el archivo nunca llegaba al repo.
+!**/fusiones.xlsx/
+!**/fusiones.xlsx/**
