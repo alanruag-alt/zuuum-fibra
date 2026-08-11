@@ -78,7 +78,10 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
   const [modo, setModo] = useState<Modo>('ver');
   const [dibujando, setDibujando] = useState<[number, number][]>([]);
   const [cableRuta, setCableRuta] = useState<string>('');
-  const [arrastrando, setArrastrando] = useState(false);
+  // Cuánto se movió el ratón con el botón apretado. Es lo que distingue un
+  // clic de un arrastre, y por eso se puede desplazar el mapa en cualquier
+  // modo: dibujando una ruta larga uno TIENE que poder moverse.
+  const gesto = useRef<{ movido: number } | null>(null);
   const [moviendo, setMoviendo] = useState<PuntoMapa | null>(null);
   const [recado, setRecado] = useState<string | null>(null);
   const [guardando, empezar] = useTransition();
@@ -148,8 +151,17 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   }
 
+  function alPresionar() {
+    gesto.current = { movido: 0 };
+  }
+
   function alSoltar(e: React.MouseEvent) {
-    if (arrastrando) return;
+    // Seis píxeles de tolerancia: un clic normal mueve dos o tres sin querer,
+    // sobre todo con la almohadilla de una laptop.
+    const arrastro = (gesto.current?.movido ?? 0) > 6;
+    gesto.current = null;
+    if (arrastro) return;
+
     const { x, y } = posicionEnMapa(e);
     const c = aCoordenada(x, y);
 
@@ -215,9 +227,8 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
   }
 
   function alArrastrar(e: React.MouseEvent) {
-    if (e.buttons !== 1) return;
-    if (modo !== 'ver' && modo !== 'mover') return;
-    setArrastrando(true);
+    if (e.buttons !== 1 || !gesto.current) return;
+    gesto.current.movido += Math.abs(e.movementX) + Math.abs(e.movementY);
     const p = proyectar(centro.lat, centro.lon, zoom);
     const c = desproyectar(p.x - e.movementX, p.y - e.movementY, zoom);
     setCentro({ lat: c.lat, lon: c.lon });
@@ -343,6 +354,10 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
           <Boton variante="texto" onClick={() => setDibujando([])}>
             Empezar de nuevo
           </Boton>
+          <p className="w-full text-xs text-marino-500">
+            Clic para poner un punto, <strong>arrastra para moverte</strong> sin perder lo que
+            llevas, y la rueda para acercar. El trazo aguanta los puntos que quieras.
+          </p>
         </div>
       )}
 
@@ -361,10 +376,13 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
       <div
         ref={caja}
         onMouseMove={alArrastrar}
-        onMouseDown={() => setArrastrando(false)}
+        onMouseDown={alPresionar}
         onMouseUp={alSoltar}
+        onMouseLeave={() => {
+          gesto.current = null;
+        }}
         onWheel={alRueda}
-        className={`relative overflow-hidden rounded-xl border border-marino-200 bg-marino-100 select-none ${
+        className={`relative select-none overflow-hidden rounded-xl border border-marino-200 bg-marino-100 active:cursor-grabbing ${
           modo === 'ver' ? 'cursor-grab' : modo === 'mover' ? 'cursor-pointer' : 'cursor-crosshair'
         }`}
         style={{ height: tam.h }}
