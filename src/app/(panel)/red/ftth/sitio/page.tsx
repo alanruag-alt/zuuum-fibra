@@ -2,9 +2,15 @@ import { Indicador } from '@/componentes/ui/Indicador';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { Elegir } from '@/app/(panel)/red/ftth/sitio/Elegir';
 import { Montado } from '@/app/(panel)/red/ftth/sitio/Montado';
+import { Sueltos } from '@/app/(panel)/red/ftth/sitio/Sueltos';
 import Rack from '@/app/(panel)/red/ftth/sitio/Rack';
 import Patcheo from '@/app/(panel)/red/ftth/sitio/Patcheo';
-import { listarEquiposRack, listarRacks, listarSitiosConRack } from '@/modulos/red/racks';
+import {
+  listarEquiposRack,
+  listarRacks,
+  listarSitiosConRack,
+  sueltosDelSitio,
+} from '@/modulos/red/racks';
 import {
   hilosSinOrigen,
   listarPuertosOdf,
@@ -62,6 +68,10 @@ export default async function PaginaSitio({
   const idsTarjeta = new Set(susTarjetas.map((t) => t.id));
   const susPon = pones.filter((p) => idsTarjeta.has(p.card_id));
   const susPuertos = puertosOdf.filter((p) => susOdf.has(p.odf_id));
+
+  // Lo que pertenece a la caseta pero no está montado en ningún gabinete. Se
+  // consulta aparte porque hasta ahora era justo lo que quedaba invisible.
+  const sueltos = elegido ? await sueltosDelSitio(elegido) : [];
 
   return (
     <div>
@@ -126,6 +136,8 @@ export default async function PaginaSitio({
           </div>
 
           <Rack racks={susRacks} equipos={susEquipos} sitio={{ id: sitio.id, name: sitio.name }} />
+
+          <Sueltos sueltos={sueltos} racks={susRacks} sitio={sitio.name} />
 
           <Montado
             equipos={susEquipos}

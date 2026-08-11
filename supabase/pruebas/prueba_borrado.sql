@@ -45,7 +45,7 @@ commit;
 \echo ''
 \echo '════════════════════════════════════════════════════════════════'
 \echo 'PRUEBA 2 · Un sitio CON equipos no se borra'
-\echo '  Se espera: PASA · lo niega y dice cuántos equipos hay'
+\echo '  Se espera: PASA · lo niega y dice CUÁL equipo estorba'
 \echo '════════════════════════════════════════════════════════════════'
 -- Los ids se preparan aquí, con permisos plenos, y viajan en tabla temporal:
 -- psql no sustituye variables dentro de un bloque $$ ... $$.
@@ -78,8 +78,10 @@ begin
     raise notice '>>> FALLA <<< borró un sitio que tenía equipos';
   exception when others then
     get stacked diagnostics v_msg = message_text;
-    if v_msg like '%tiene un equipo%' then
-      raise notice 'PASA · rechazado: %', v_msg;
+    -- Desde la 042 el recado NOMBRA lo que estorba, en vez de decir solo
+    -- «tiene un equipo». Se exige el nombre: de eso se trataba el arreglo.
+    if v_msg like '%Sector de prueba%' then
+      raise notice 'PASA · rechazado, y nombra lo que estorba: %', v_msg;
     else
       raise notice '>>> FALLA <<< se cayó por otra razón: %', v_msg;
     end if;

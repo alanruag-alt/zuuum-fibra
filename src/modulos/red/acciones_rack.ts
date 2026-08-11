@@ -227,3 +227,19 @@ export async function montarOdf(datos: {
   const fila = (data ?? [])[0] as { mensaje?: string } | undefined;
   return { ok: true, mensaje: fila?.mensaje ?? 'ODF dado de alta y montado.' };
 }
+
+/**
+ * Desamarrar del sitio sin borrar.
+ *
+ * Sirve cuando el equipo sí existe pero se capturó en la caseta equivocada.
+ * La base se niega si sigue montado en un rack: si no, el rack diría que está
+ * ahí y el equipo diría que no.
+ */
+export async function sacarDelSitio(id: string, que: 'equipo' | 'elemento'): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('sacar_del_sitio', { p_id: id, p_que: que });
+
+  if (error) return { ok: false, mensaje: error.message };
+  refrescar();
+  return { ok: true, mensaje: String(data ?? 'Listo.') };
+}

@@ -98,3 +98,27 @@ export async function listarSitiosConRack(): Promise<SitioConRack[]> {
   if (error) return [];
   return (data ?? []) as unknown as SitioConRack[];
 }
+
+export interface Suelto {
+  id: string;
+  /** 'equipo' (network_devices) o 'elemento' (network_elements). */
+  que: 'equipo' | 'elemento';
+  nombre: string;
+  tipo: string;
+  detalle: string | null;
+  activo: boolean;
+  alta: string;
+}
+
+/**
+ * Lo que pertenece a la caseta pero no está en ningún gabinete.
+ *
+ * Si esto no se enseña, existe y estorba sin que nadie pueda tocarlo: es
+ * exactamente lo que pasó al querer borrar SITE PEDRISEÑA.
+ */
+export async function sueltosDelSitio(sitio: string): Promise<Suelto[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('sueltos_del_sitio', { p_sitio: sitio });
+  if (error) return [];
+  return (data ?? []) as unknown as Suelto[];
+}
