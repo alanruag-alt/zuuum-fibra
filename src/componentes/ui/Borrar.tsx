@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from 'react';
 import { Boton } from '@/componentes/ui/Boton';
 import { eliminarArticulo } from '@/modulos/almacen/acciones';
 import { borrarTrazo, eliminarCable, eliminarEquipo } from '@/modulos/ftth/acciones';
+import { eliminarSplitter } from '@/modulos/ftth/acciones_splitter';
 import { eliminarPlano, eliminarPoste } from '@/modulos/posteria/acciones';
 import { eliminarDispositivo, eliminarElemento, eliminarSitio } from '@/modulos/red/acciones';
 import type { Respuesta } from '@/modulos/admin/acciones';
@@ -18,6 +19,7 @@ const ACCIONES = {
   equipo: eliminarEquipo,
   plano: eliminarPlano,
   poste: eliminarPoste,
+  splitter: eliminarSplitter,
 } as const;
 
 interface Props {
