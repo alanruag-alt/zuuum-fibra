@@ -58,6 +58,7 @@ export async function eliminarPoste(
 
   revalidatePath('/red/posteria');
   revalidatePath('/mapa');
+  revalidatePath('/red/ftth/mapa');
   return { ok: true, mensaje: 'Poste borrado. Vuelve a renumerar para recalcular los vanos.' };
 }
 

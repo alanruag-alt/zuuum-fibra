@@ -124,7 +124,12 @@ export async function eliminarSitio(
   _anterior: Respuesta | null,
   datos: FormData,
 ): Promise<Respuesta> {
-  return borrar('eliminar_sitio', limpio(datos, 'id'), ['/red/wisp', '/red/equipos', '/mapa']);
+  return borrar('eliminar_sitio', limpio(datos, 'id'), [
+    '/red/wisp',
+    '/red/equipos',
+    '/mapa',
+    '/red/ftth/mapa',
+  ]);
 }
 
 export async function eliminarDispositivo(
@@ -138,5 +143,5 @@ export async function eliminarElemento(
   _anterior: Respuesta | null,
   datos: FormData,
 ): Promise<Respuesta> {
-  return borrar('eliminar_elemento', limpio(datos, 'id'), ['/red/ftth', '/mapa']);
+  return borrar('eliminar_elemento', limpio(datos, 'id'), ['/red/ftth', '/mapa', '/red/ftth/mapa']);
 }

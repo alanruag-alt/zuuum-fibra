@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { Boton } from '@/componentes/ui/Boton';
 import { eliminarArticulo } from '@/modulos/almacen/acciones';
 import { borrarTrazo, eliminarCable, eliminarEquipo } from '@/modulos/ftth/acciones';
@@ -27,6 +27,13 @@ interface Props {
   nombre: string;
   /** Cómo se llama el botón, cuando «borrar» no es la palabra exacta. */
   texto?: string;
+  /**
+   * Qué hacer cuando ya se borró.
+   *
+   * Lo usa el mapa: además de refrescar, cierra la ficha de lo que acaba de
+   * desaparecer. Sin esto quedaba abierta enseñando algo que ya no existe.
+   */
+  alTerminar?: () => void;
 }
 
 /**
@@ -39,12 +46,19 @@ interface Props {
  * Si la base se niega —porque hay clientes colgados, existencia o historia—
  * su mensaje se enseña tal cual: ya viene explicando qué hacer primero.
  */
-export function Borrar({ tipo, id, nombre, texto = 'borrar' }: Props) {
+export function Borrar({ tipo, id, nombre, texto = 'borrar', alTerminar }: Props) {
   const [preguntando, setPreguntando] = useState(false);
   const [estado, accion, enviando] = useActionState<Respuesta | null, FormData>(
     ACCIONES[tipo],
     null,
   );
+
+  useEffect(() => {
+    if (estado?.ok) alTerminar?.();
+    // Solo cuando cambia el resultado: si dependiera también de alTerminar,
+    // una función distinta en cada render lo dispararía sin parar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado?.ok]);
 
   if (estado?.ok) {
     return <span className="text-xs text-marino-400">{estado.mensaje}</span>;

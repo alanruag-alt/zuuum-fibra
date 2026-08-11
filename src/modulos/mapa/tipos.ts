@@ -7,6 +7,16 @@ export interface PuntoMapa {
   lat: number;
   lon: number;
   color: string;
+  /**
+   * La ficha que se enseña al darle clic.
+   *
+   * Se arma aquí, del lado del servidor, y no en el mapa: cada clase tiene
+   * datos distintos —una NAP tiene puertos, un poste tiene vano— y meter esa
+   * decisión en la pantalla la llenaría de condiciones.
+   */
+  ficha: { que: string; dato: string }[];
+  /** Qué se le pide borrar a la base cuando se borra desde el mapa. */
+  borrarComo: 'elemento' | 'sitio' | 'poste';
 }
 
 /** El recorrido de un cable. */

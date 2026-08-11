@@ -7,6 +7,17 @@ import {
   type VistaZona,
 } from '@/modulos/mapa/tipos';
 
+/** Cómo se le dice a cada cosa cuando se enseña la ficha. */
+const TEXTO_TIPO: Record<string, string> = {
+  nap: 'NAP',
+  closure: 'Caja de empalme',
+  odf: 'ODF (distribuidor)',
+  splitter: 'Splitter',
+  hand_hole: 'Registro',
+  pole: 'Poste',
+  other: 'Otro',
+};
+
 const COLORES = {
   nap_lleno: '#dc2626',
   nap_casi: '#d97706',
@@ -31,7 +42,10 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
 
   const { data: elementos } = await supabase
     .from('v_elementos_red')
-    .select('id, code, name, element_type, latitude, longitude, capacity, used_ports, semaforo')
+    .select(
+      'id, code, name, element_type, latitude, longitude, capacity, used_ports, semaforo, ' +
+        'zona, cable, cable_pos_m, servicios, notes',
+    )
     .eq('zone_id', zonaId)
     .eq('is_active', true)
     .not('latitude', 'is', null);
@@ -41,6 +55,7 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
     const clase =
       tipo === 'nap' ? 'nap' : tipo === 'odf' ? 'odf' : tipo === 'closure' ? 'caja' : 'caja';
     const sem = e.semaforo as string;
+    const libres = Number(e.capacity ?? 0) - Number(e.used_ports ?? 0);
     salida.push({
       id: `e:${e.id as string}`,
       clase: clase as PuntoMapa['clase'],
@@ -49,6 +64,41 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
         [e.name as string, e.capacity ? `${e.used_ports}/${e.capacity} puertos` : null]
           .filter(Boolean)
           .join(' · ') || null,
+      ficha: [
+        { que: 'Qué es', dato: TEXTO_TIPO[tipo] ?? tipo },
+        { que: 'Referencia', dato: (e.name as string) ?? '—' },
+        { que: 'Zona', dato: (e.zona as string) ?? '—' },
+        ...(e.capacity
+          ? [
+              {
+                que: 'Puertos',
+                dato:
+                  `${e.used_ports} ocupados de ${e.capacity}` +
+                  (libres > 0 ? ` · quedan ${libres}` : ' · llena'),
+              },
+            ]
+          : []),
+        {
+          que: 'Clientes',
+          dato:
+            Number(e.servicios ?? 0) === 1
+              ? '1 cliente conectado'
+              : `${Number(e.servicios ?? 0)} clientes conectados`,
+        },
+        {
+          que: 'Sobre qué fibra',
+          dato: e.cable
+            ? `${e.cable as string}` +
+              (e.cable_pos_m !== null
+                ? `, en el metro ${Math.round(Number(e.cable_pos_m))} del recorrido`
+                : '')
+            : tipo === 'nap' || tipo === 'closure'
+              ? 'suelta — no cuelga de ningún cable'
+              : 'no aplica: vive en la caseta',
+        },
+        ...(e.notes ? [{ que: 'Notas', dato: e.notes as string }] : []),
+      ],
+      borrarComo: 'elemento' as const,
       lat: Number(e.latitude),
       lon: Number(e.longitude),
       color:
@@ -77,6 +127,14 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
       clase: 'sitio',
       nombre: s.name as string,
       detalle: (s.type as string) ?? null,
+      ficha: [
+        { que: 'Qué es', dato: (s.type as string) ?? 'sitio' },
+        {
+          que: 'Coordenadas',
+          dato: `${Number(s.latitude).toFixed(6)}, ${Number(s.longitude).toFixed(6)}`,
+        },
+      ],
+      borrarComo: 'sitio' as const,
       lat: Number(s.latitude),
       lon: Number(s.longitude),
       color: COLORES.sitio,
@@ -85,7 +143,7 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
 
   const { data: postes } = await supabase
     .from('v_postes')
-    .select('id, number, latitude, longitude, cable, is_new, span_m')
+    .select('id, number, code, latitude, longitude, cable, is_new, span_m')
     .eq('zone_id', zonaId)
     .eq('is_active', true)
     .not('latitude', 'is', null)
@@ -100,6 +158,17 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
         [p.cable as string, p.span_m ? `vano ${Math.round(Number(p.span_m))} m` : null]
           .filter(Boolean)
           .join(' · ') || null,
+      ficha: [
+        { que: 'Número', dato: p.number !== null ? String(p.number) : 'sin numerar' },
+        { que: 'Etiqueta', dato: (p.code as string) ?? '—' },
+        { que: 'De qué cable', dato: (p.cable as string) ?? 'fuera de toda ruta' },
+        {
+          que: 'Vano',
+          dato: p.span_m ? `${Math.round(Number(p.span_m))} m del anterior` : 'sin medir',
+        },
+        ...(p.is_new ? [{ que: 'Estado', dato: 'por plantar' }] : []),
+      ],
+      borrarComo: 'poste' as const,
       lat: Number(p.latitude),
       lon: Number(p.longitude),
       color: p.is_new ? COLORES.poste_nuevo : COLORES.poste,

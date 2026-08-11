@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Boton } from '@/componentes/ui/Boton';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { ImportarKmz } from '@/app/(panel)/red/posteria/Editor';
 import {
   type Corte,
@@ -105,7 +107,7 @@ const MODOS: { id: Modo; texto: string; icono: string }[] = [
 
 /** Lo que dice cada modo, para no tener que adivinar qué hace. */
 const AYUDA: Record<Modo, string> = {
-  ver: 'Arrastra para moverte, rueda para acercar. Pasa el cursor por un punto para ver qué es.',
+  ver: 'Arrastra para moverte y la rueda para acercar. Dale clic a una NAP, caja o poste para ver su ficha y poder borrarlo.',
   sitio: 'Clic donde está la torre, el POP o la caseta de la OLT.',
   caja: 'Clic SOBRE la línea del cable. Ahí se abre la caja de empalme, no a media cuadra.',
   nap: 'Clic SOBRE la línea del cable. La NAP cuelga de la fibra: si ahí no pasa, no entra.',
@@ -151,13 +153,34 @@ export function Mapa({
   // modo: dibujando una ruta larga uno TIENE que poder moverse.
   const gesto = useRef<{ movido: number } | null>(null);
   const [moviendo, setMoviendo] = useState<PuntoMapa | null>(null);
-  const [recado, setRecado] = useState<string | null>(null);
+  // El recado guarda si salió bien o mal. Antes todo se pintaba de verde, y un
+  // rechazo con fondo verde se lee como «quedó»: por eso una caja que la base
+  // no aceptó parecía haberse agregado.
+  const [recado, decirRecado] = useState<{ ok: boolean; texto: string } | null>(null);
+  const fallo = (texto: string) => decirRecado({ ok: false, texto });
+  // Lo que se está viendo de cerca: la ficha de un punto del mapa.
+  const [elegido, setElegido] = useState<PuntoMapa | null>(null);
   const [verPostes, setVerPostes] = useState(true);
   const [verNumeros, setVerNumeros] = useState(true);
   const [pegarAPostes, setPegarAPostes] = useState(true);
   const [corte, setCorte] = useState<Corte | null>(null);
   const [abrirCorte, setAbrirCorte] = useState(false);
   const [guardando, empezar] = useTransition();
+  const router = useRouter();
+
+  /**
+   * Lo que contestó el servidor.
+   *
+   * Además de enseñar el recado, vuelve a pedir la zona. Sin esto lo que se
+   * guardaba SÍ quedaba en la base, pero el mapa seguía enseñando lo de antes
+   * —y una caja que no aparece se siente igualito a una caja que no se
+   * guardó—. Por eso se pide el refresco explícito y no se confía en que la
+   * pantalla se entere sola.
+   */
+  function aplicar(r: { ok: boolean; mensaje: string }) {
+    decirRecado({ ok: r.ok, texto: r.mensaje });
+    if (r.ok) router.refresh();
+  }
 
   // El centro cambia cuando uno cambia de zona: cada localidad tiene el suyo.
   useEffect(() => {
@@ -165,6 +188,10 @@ export function Mapa({
     setZoom(vista.zoom);
     setDibujando([]);
   }, [vista.lat, vista.lon, vista.zoom]);
+
+  useEffect(() => {
+    if (elegido && !puntos.some((p) => p.id === elegido.id)) setElegido(null);
+  }, [puntos, elegido]);
 
   useEffect(() => {
     const medir = () => {
@@ -285,7 +312,7 @@ export function Mapa({
     }
 
     if (!mejor || mejor.metros > margen) {
-      setRecado(
+      fallo(
         trazos.length === 0
           ? 'Aquí no hay ningún cable dibujado, y las NAP y las cajas van encima de la fibra. ' +
               'Dale a «Dibujar ruta» y marca primero el recorrido del cable.'
@@ -309,6 +336,9 @@ export function Mapa({
     const { x, y } = posicionEnMapa(e);
     const c = aCoordenada(x, y);
 
+    // Clic al vacío: se cierra la ficha que estuviera abierta.
+    if (elegido) setElegido(null);
+
     if (modo === 'ruta') {
       setDibujando((d) => [...d, ajustar(c.lat, c.lon)]);
       return;
@@ -322,7 +352,7 @@ export function Mapa({
       if (!f) return;
       empezar(async () => {
         const r = await moverPunto(moviendo.id, moviendo.clase, f.lat, f.lon);
-        setRecado(r.mensaje);
+        aplicar(r);
         setMoviendo(null);
       });
       return;
@@ -333,7 +363,7 @@ export function Mapa({
       if (!nombre?.trim()) return;
       empezar(async () => {
         const r = await colocarSitio(zonaActual, nombre.trim(), 'tower', c.lat, c.lon);
-        setRecado(r.mensaje);
+        aplicar(r);
       });
       return;
     }
@@ -355,7 +385,7 @@ export function Mapa({
           f.lon,
           puertos,
         );
-        setRecado(r.mensaje);
+        aplicar(r);
       });
       return;
     }
@@ -385,7 +415,7 @@ export function Mapa({
           f.lon,
           cap,
         );
-        setRecado(r.mensaje);
+        aplicar(r);
       });
       return;
     }
@@ -393,7 +423,7 @@ export function Mapa({
     if (modo === 'poste') {
       empezar(async () => {
         const r = await colocarPoste(zonaActual, c.lat, c.lon);
-        setRecado(r.mensaje);
+        aplicar(r);
       });
     }
   }
@@ -509,7 +539,7 @@ export function Mapa({
             onClick={() =>
               empezar(async () => {
                 const r = await guardarVistaZona(zonaActual, centro.lat, centro.lon, zoom);
-                setRecado(r.mensaje);
+                aplicar(r);
               })
             }
           >
@@ -578,7 +608,7 @@ export function Mapa({
             onClick={() =>
               empezar(async () => {
                 const r = await guardarTrazo(cableRuta, dibujando);
-                setRecado(r.mensaje);
+                aplicar(r);
                 if (r.ok) setDibujando([]);
               })
             }
@@ -619,7 +649,7 @@ export function Mapa({
                   d.get('desde') !== 'fin',
                   d.get('descontar') === 'si',
                 );
-                setRecado(r.mensaje);
+                aplicar(r);
                 if (r.corte) {
                   setCorte(r.corte);
                   setCentro({ lat: Number(r.corte.lat), lon: Number(r.corte.lon) });
@@ -686,7 +716,7 @@ export function Mapa({
                 variante="texto"
                 onClick={() => {
                   setCorte(null);
-                  setRecado(null);
+                  decirRecado(null);
                 }}
               >
                 Quitar la marca
@@ -710,7 +740,21 @@ export function Mapa({
       )}
 
       {recado && (
-        <div className="mb-3 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-exito">{recado}</div>
+        <div
+          className={`mb-3 flex items-start gap-2 rounded-lg px-4 py-2.5 text-sm ${
+            recado.ok ? 'bg-green-50 text-exito' : 'bg-red-50 text-falla'
+          }`}
+        >
+          <span aria-hidden="true">{recado.ok ? '✓' : '⚠'}</span>
+          <span className="flex-1">{recado.texto}</span>
+          <button
+            type="button"
+            onClick={() => decirRecado(null)}
+            className="shrink-0 opacity-60 hover:opacity-100"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       <div
@@ -822,20 +866,50 @@ export function Mapa({
             <button
               key={p.id}
               type="button"
-              onClick={(e) => {
-                if (modo === 'mover') {
-                  e.stopPropagation();
+              onMouseUp={(e) => {
+                /* Ojo con el orden de los eventos: el «mouseup» de este punto
+                 * sube al mapa de abajo. Si no se corta aquí, darle clic a una
+                 * NAP estando en modo «Colocar NAP» pondría otra encima de la
+                 * que ya estaba.
+                 *
+                 * Se corta SOLO cuando el clic sobre el punto significa algo:
+                 * verlo, o agarrarlo para moverlo. Dibujando una ruta el clic
+                 * tiene que llegar al mapa, porque ahí es donde se pega al
+                 * poste.
+                 */
+                const arrastro = (gesto.current?.movido ?? 0) > 6;
+                if (arrastro) return;
+
+                const agarrar = modo === 'mover' && !moviendo;
+                const inspeccionar = modo === 'ver';
+                if (!agarrar && !inspeccionar) return;
+
+                e.stopPropagation();
+                gesto.current = null;
+
+                if (agarrar) {
                   setMoviendo(p);
+                  return;
                 }
+                setElegido(p);
+                decirRecado(null);
               }}
-              title={`${p.nombre}${p.detalle ? ` · ${p.detalle}` : ''}`}
+              title={`${p.nombre}${p.detalle ? ` · ${p.detalle}` : ''}${
+                modo === 'ver' ? ' — clic para ver su ficha' : ''
+              }`}
               className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{ left: s.x, top: s.y, zIndex: esPoste ? 5 : 10 }}
             >
               <span
                 className={`block rounded-full border-2 border-white shadow ${
                   esPoste ? 'h-2.5 w-2.5' : 'h-4 w-4'
-                } ${moviendo?.id === p.id ? 'ring-2 ring-red-500' : ''}`}
+                } ${
+                  moviendo?.id === p.id
+                    ? 'ring-2 ring-red-500'
+                    : elegido?.id === p.id
+                      ? 'ring-2 ring-naranja-500 ring-offset-1'
+                      : ''
+                }`}
                 style={{ background: p.color }}
               />
               {(!esPoste || verNumeros) && (
@@ -865,6 +939,82 @@ export function Mapa({
             <span className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
               corte · {Math.round(Number(corte.geo_m))} m
             </span>
+          </div>
+        )}
+
+        {/* ── la ficha ─────────────────────────────────────────────────────
+            Va encima del mapa, arriba a la izquierda y no pegada al punto:
+            pegada al punto tapa justo lo que uno quiere ver, y cuando el punto
+            está en la orilla se sale de la pantalla. */}
+        {elegido && (
+          <div
+            className="absolute left-3 top-3 w-72 rounded-xl border border-marino-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm"
+            style={{ zIndex: 30 }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className="block h-3 w-3 shrink-0 rounded-full border-2 border-white shadow"
+                  style={{ background: elegido.color }}
+                />
+                <p className="truncate font-mono text-sm font-semibold text-marino-800">
+                  {elegido.clase === 'poste' ? `Poste ${elegido.nombre}` : elegido.nombre}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setElegido(null)}
+                className="shrink-0 rounded px-1 text-marino-400 hover:bg-marino-50 hover:text-marino-700"
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <dl className="mt-2.5 space-y-1.5 text-xs">
+              {elegido.ficha.map((f) => (
+                <div key={f.que} className="flex gap-2">
+                  <dt className="w-24 shrink-0 text-marino-400">{f.que}</dt>
+                  <dd className="flex-1 text-marino-700">{f.dato}</dd>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <dt className="w-24 shrink-0 text-marino-400">Dónde está</dt>
+                <dd className="flex-1 font-mono text-[11px] text-marino-500">
+                  {elegido.lat.toFixed(6)}, {elegido.lon.toFixed(6)}
+                </dd>
+              </div>
+            </dl>
+
+            {puedeEditar && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-marino-100 pt-2.5">
+                <Boton
+                  variante="secundario"
+                  className="px-2.5 py-1 text-xs"
+                  onClick={() => {
+                    setModo('mover');
+                    setMoviendo(elegido);
+                    setElegido(null);
+                  }}
+                >
+                  ✋ Mover
+                </Boton>
+                {/* Borrar de verdad, con la misma pregunta de siempre. Si la
+                    base se niega —porque hay clientes colgados— su recado sale
+                    aquí mismo, sin salir del mapa. */}
+                <Borrar
+                  tipo={elegido.borrarComo}
+                  id={elegido.id.split(':')[1]}
+                  nombre={elegido.clase === 'poste' ? `el poste ${elegido.nombre}` : elegido.nombre}
+                  alTerminar={() => {
+                    setElegido(null);
+                    router.refresh();
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
