@@ -91,6 +91,16 @@ export const TIPOS_EQUIPO = [
   { clave: 'otro', rotulo: 'Otro', icono: '📦', altura: 1 },
 ];
 
+/**
+ * Los que se montan sueltos, sin dar de alta nada más.
+ *
+ * La OLT y el ODF NO están aquí a propósito: esos se dan de alta con sus
+ * botones, porque nacen con tarjetas y con bandejas. Ofrecerlos en esta lista
+ * dejaría montar una etiqueta que dice «OLT» sin OLT detrás, y el día que
+ * alguien la busque en la pestaña de equipos no va a estar.
+ */
+export const TIPOS_SUELTOS = TIPOS_EQUIPO.filter((t) => t.clave !== 'olt' && t.clave !== 'odf');
+
 export function tipoDe(clave: string) {
   return TIPOS_EQUIPO.find((t) => t.clave === clave) ?? TIPOS_EQUIPO[8];
 }

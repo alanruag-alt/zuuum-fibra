@@ -9,9 +9,18 @@ import {
   eliminarRack,
   guardarRack,
   montarEnRack,
+  montarOdf,
+  montarOlt,
   moverEnRack,
 } from '@/modulos/red/acciones_rack';
-import { ALTURAS_RACK, ESTADOS, TIPOS_EQUIPO, estadoDe, tipoDe } from '@/modulos/red/rack_tipos';
+import {
+  ALTURAS_RACK,
+  CONECTORES,
+  ESTADOS,
+  TIPOS_SUELTOS,
+  estadoDe,
+  tipoDe,
+} from '@/modulos/red/rack_tipos';
 import type { EquipoRack, Rack } from '@/modulos/red/racks';
 import type { Respuesta } from '@/modulos/admin/acciones';
 
@@ -22,20 +31,11 @@ const CAMPO =
 const U_MIN = 14;
 const U_MAX = 44;
 
-export interface OpcionEquipo {
-  id: string;
-  etiqueta: string;
-  vendor?: string | null;
-  model?: string | null;
-  detalle?: string | null;
-}
-
 interface Props {
+  /** Solo los gabinetes de la comunidad que se está viendo. */
   racks: Rack[];
   equipos: EquipoRack[];
-  sitios: { id: string; name: string }[];
-  olts: OpcionEquipo[];
-  odfs: OpcionEquipo[];
+  sitio: { id: string; name: string };
 }
 
 /**
@@ -50,7 +50,7 @@ interface Props {
  * arreglo, y vale la pena: si el dibujo numera al revés que el fierro, quien
  * lo use se equivoca de U una vez y ya no vuelve a confiar en la pantalla.
  */
-export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
+export default function Rack({ racks, equipos, sitio }: Props) {
   const router = useRouter();
   const [elegido, setElegido] = useState<string | null>(racks[0]?.id ?? null);
   const [alto, setAlto] = useState(26);
@@ -58,7 +58,11 @@ export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [recado, setRecado] = useState<Respuesta | null>(null);
   const [formulario, setFormulario] = useState<
-    null | { modo: 'nuevo'; kind: string; en?: number } | { modo: 'editar'; item: EquipoRack }
+    | null
+    | { modo: 'olt'; en?: number }
+    | { modo: 'odf'; en?: number }
+    | { modo: 'nuevo'; kind: string; en?: number }
+    | { modo: 'editar'; item: EquipoRack }
   >(null);
   const [rackForm, setRackForm] = useState<null | { rack: Rack | null }>(null);
   const [guardando, empezar] = useTransition();
@@ -154,8 +158,8 @@ export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
             <p className="text-3xl">🗄️</p>
             <p className="mt-3 text-sm font-medium text-marino-800">Todavía no hay ningún rack</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-marino-400">
-              Un rack vive dentro de un sitio. Dale de alta el gabinete con su altura —6, 12, 24, 42
-              o 48 U— y después monta ahí la OLT y el ODF que ya tienes capturados.
+              El gabinete es lo primero que se atornilla en {sitio.name}. Dale de alta con su altura
+              —6, 12, 24, 42 o 48 U— y de ahí se cuelga el ODF y la OLT.
             </p>
             <div className="mt-4">
               <Boton onClick={() => setRackForm({ rack: null })}>Nuevo rack</Boton>
@@ -165,7 +169,7 @@ export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
         {rackForm && (
           <FormularioRack
             rack={rackForm.rack}
-            sitios={sitios}
+            sitio={sitio}
             onCerrar={() => setRackForm(null)}
             onListo={(r) => {
               aplicar(r);
@@ -193,7 +197,7 @@ export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
           >
             {racks.map((r) => (
               <option key={r.id} value={r.id}>
-                {r.sitio} · {r.name} ({r.units}U, {r.libres} libres)
+                {r.name} · {r.units}U · {r.libres} libres
               </option>
             ))}
           </select>
@@ -252,14 +256,14 @@ export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
                 <Boton
                   variante="secundario"
                   className="px-3 py-1.5 text-xs"
-                  onClick={() => setFormulario({ modo: 'nuevo', kind: 'olt' })}
+                  onClick={() => setFormulario({ modo: 'olt' })}
                 >
                   Agregar OLT
                 </Boton>
                 <Boton
                   variante="secundario"
                   className="px-3 py-1.5 text-xs"
-                  onClick={() => setFormulario({ modo: 'nuevo', kind: 'odf' })}
+                  onClick={() => setFormulario({ modo: 'odf' })}
                 >
                   Agregar ODF
                 </Boton>
@@ -472,12 +476,34 @@ export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
         </div>
       )}
 
-      {formulario && rack && (
+      {formulario?.modo === 'olt' && rack && (
+        <FormularioOlt
+          rack={rack}
+          sugerida={formulario.en ?? (primerHueco(2) || 1)}
+          onCerrar={() => setFormulario(null)}
+          onListo={(r) => {
+            aplicar(r);
+            if (r.ok) setFormulario(null);
+          }}
+        />
+      )}
+
+      {formulario?.modo === 'odf' && rack && (
+        <FormularioOdf
+          rack={rack}
+          sugerida={formulario.en ?? (primerHueco(1) || 1)}
+          onCerrar={() => setFormulario(null)}
+          onListo={(r) => {
+            aplicar(r);
+            if (r.ok) setFormulario(null);
+          }}
+        />
+      )}
+
+      {(formulario?.modo === 'nuevo' || formulario?.modo === 'editar') && rack && (
         <FormularioEquipo
           rack={rack}
           formulario={formulario}
-          olts={olts}
-          odfs={odfs}
           sugerida={
             formulario.modo === 'nuevo'
               ? (formulario.en ?? (primerHueco(tipoDe(formulario.kind).altura) || 1))
@@ -494,7 +520,7 @@ export default function Racks({ racks, equipos, sitios, olts, odfs }: Props) {
       {rackForm && (
         <FormularioRack
           rack={rackForm.rack}
-          sitios={sitios}
+          sitio={sitio}
           onCerrar={() => setRackForm(null)}
           onListo={(r) => {
             aplicar(r);
@@ -716,16 +742,16 @@ function Propiedades({
 // ────────────────────────────────────────────────────────── formulario rack
 function FormularioRack({
   rack,
-  sitios,
+  sitio,
   onCerrar,
   onListo,
 }: {
   rack: Rack | null;
-  sitios: { id: string; name: string }[];
+  /** La comunidad ya está elegida arriba: aquí no se vuelve a preguntar. */
+  sitio: { id: string; name: string };
   onCerrar: () => void;
   onListo: (r: Respuesta) => void;
 }) {
-  const [sitio, setSitio] = useState(rack?.site_id ?? sitios[0]?.id ?? '');
   const [nombre, setNombre] = useState(rack?.name ?? 'Rack A');
   const [units, setUnits] = useState(rack?.units ?? 42);
   const [lugar, setLugar] = useState(rack?.location ?? '');
@@ -734,20 +760,11 @@ function FormularioRack({
   const [guardando, empezar] = useTransition();
 
   return (
-    <Panel titulo={rack ? `Editar ${rack.name}` : 'Rack nuevo'} onCerrar={onCerrar}>
+    <Panel
+      titulo={rack ? `Editar ${rack.name}` : `Un gabinete nuevo en ${sitio.name}`}
+      onCerrar={onCerrar}
+    >
       <div className="grid gap-3 sm:grid-cols-2">
-        {!rack && (
-          <label className="block">
-            <span className="text-xs font-medium text-marino-600">Sitio</span>
-            <select value={sitio} onChange={(e) => setSitio(e.target.value)} className={CAMPO}>
-              {sitios.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         <label className="block">
           <span className="text-xs font-medium text-marino-600">Nombre</span>
           <input
@@ -809,7 +826,7 @@ function FormularioRack({
             empezar(async () => {
               const r = await guardarRack({
                 id: rack?.id ?? null,
-                sitio: rack ? null : sitio,
+                sitio: rack ? null : sitio.id,
                 nombre: nombre.trim(),
                 units,
                 lugar: lugar.trim() || null,
@@ -830,20 +847,444 @@ function FormularioRack({
   );
 }
 
+// ───────────────────────────────────────────────────────── formulario OLT
+/**
+ * La OLT se da de alta aquí, no en otra pantalla.
+ *
+ * Antes había que pasar por Equipos para crearla, volver al rack para
+ * ubicarla, y acordarse de abrirle las tarjetas. Tres pantallas para una sola
+ * cosa que en campo es un solo movimiento: atornillarla y prenderla. Quien
+ * captura así se salta un paso tarde o temprano, y lo que queda es una OLT
+ * que no aparece en ningún gabinete.
+ *
+ * El sitio no se pregunta: sale del rack. Un rack vive dentro de un sitio, y
+ * volver a preguntarlo solo abre la puerta a que no coincidan.
+ */
+function FormularioOlt({
+  rack,
+  sugerida,
+  onCerrar,
+  onListo,
+}: {
+  rack: Rack;
+  sugerida: number;
+  onCerrar: () => void;
+  onListo: (r: Respuesta) => void;
+}) {
+  const [nombre, setNombre] = useState('');
+  const [marca, setMarca] = useState('');
+  const [modelo, setModelo] = useState('');
+  const [serie, setSerie] = useState('');
+  const [ip, setIp] = useState('');
+  const [position, setPosition] = useState(sugerida);
+  const [height, setHeight] = useState(2);
+  const [tarjetas, setTarjetas] = useState(1);
+  const [puertos, setPuertos] = useState(8);
+  const [tipoTarjeta, setTipoTarjeta] = useState('');
+  const [notas, setNotas] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, empezar] = useTransition();
+
+  const tope = Math.max(1, rack.units - height + 1);
+  const fuera = position + height - 1 > rack.units;
+
+  return (
+    <Panel titulo={`Agregar una OLT a ${rack.name}`} onCerrar={onCerrar}>
+      <p className="mb-3 text-sm text-marino-400">
+        Queda dada de alta en <strong>{rack.sitio}</strong>, montada en su unidad y con sus tarjetas
+        abiertas. No hay que pasar por ninguna otra pantalla.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block sm:col-span-2">
+          <span className="text-xs font-medium text-marino-600">Nombre de la OLT</span>
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="OLT-CUE-01"
+            className={`${CAMPO} font-mono`}
+            autoFocus
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">IP de gestión</span>
+          <input
+            value={ip}
+            onChange={(e) => setIp(e.target.value)}
+            placeholder="10.10.0.2"
+            className={`${CAMPO} font-mono`}
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Marca</span>
+          <input
+            value={marca}
+            onChange={(e) => setMarca(e.target.value)}
+            placeholder="Huawei"
+            className={CAMPO}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Modelo</span>
+          <input
+            value={modelo}
+            onChange={(e) => setModelo(e.target.value)}
+            placeholder="EA5800"
+            className={CAMPO}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Número de serie</span>
+          <input
+            value={serie}
+            onChange={(e) => setSerie(e.target.value)}
+            className={`${CAMPO} font-mono`}
+          />
+        </label>
+      </div>
+
+      <p className="mt-4 text-xs font-medium uppercase tracking-wide text-marino-400">
+        Dónde va en el gabinete
+      </p>
+      <div className="mt-1 grid gap-3 sm:grid-cols-3">
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Unidad donde empieza</span>
+          <input
+            type="number"
+            min={1}
+            max={tope}
+            value={position}
+            onChange={(e) => setPosition(Number(e.target.value))}
+            className={CAMPO}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Cuántas U ocupa</span>
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={height}
+            onChange={(e) => setHeight(Number(e.target.value))}
+            className={CAMPO}
+          />
+        </label>
+      </div>
+
+      <p className="mt-4 text-xs font-medium uppercase tracking-wide text-marino-400">
+        Las tarjetas que trae
+      </p>
+      <div className="mt-1 grid gap-3 sm:grid-cols-3">
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Cuántas tarjetas</span>
+          <input
+            type="number"
+            min={0}
+            max={20}
+            value={tarjetas}
+            onChange={(e) => setTarjetas(Number(e.target.value))}
+            className={CAMPO}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Puertos PON por tarjeta</span>
+          <select
+            value={puertos}
+            onChange={(e) => setPuertos(Number(e.target.value))}
+            className={CAMPO}
+          >
+            {[4, 8, 16].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Tipo de tarjeta</span>
+          <input
+            value={tipoTarjeta}
+            onChange={(e) => setTipoTarjeta(e.target.value)}
+            placeholder="GPON 8"
+            className={CAMPO}
+          />
+        </label>
+      </div>
+
+      <p className="mt-2 rounded-lg bg-marino-50 px-3 py-2 text-xs text-marino-500">
+        {tarjetas > 0 ? (
+          <>
+            Va a nacer con <strong>{tarjetas * puertos} puertos PON</strong> numerados como en el
+            chasis. Después se le agregan más tarjetas desde aquí mismo.
+          </>
+        ) : (
+          <>
+            Sin tarjetas no tiene un solo puerto PON, así que todavía no se le puede patchear el ODF
+            ni colgar un cliente. Se le pueden agregar después.
+          </>
+        )}
+      </p>
+
+      <label className="mt-3 block">
+        <span className="text-xs font-medium text-marino-600">Observaciones</span>
+        <textarea
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+          rows={2}
+          className={CAMPO}
+        />
+      </label>
+
+      <p className="mt-2 rounded-lg bg-marino-50 px-3 py-2 text-xs text-marino-500">
+        La IP de gestión sirve para llegar al equipo. El usuario y la contraseña de la OLT no van
+        aquí ni en ningún otro lado del sistema.
+      </p>
+
+      {fuera && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-aviso">
+          Así se sale del gabinete: empieza en la U{tope} o más abajo.
+        </p>
+      )}
+      {error && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-falla">{error}</p>}
+
+      <div className="mt-3 flex gap-2">
+        <Boton
+          cargando={guardando}
+          disabled={nombre.trim().length < 2 || fuera}
+          onClick={() =>
+            empezar(async () => {
+              const r = await montarOlt({
+                rack: rack.id,
+                nombre: nombre.trim(),
+                marca: marca.trim() || null,
+                modelo: modelo.trim() || null,
+                serie: serie.trim() || null,
+                ip: ip.trim() || null,
+                position,
+                height,
+                tarjetas,
+                puertos,
+                tipoTarjeta: tipoTarjeta.trim() || null,
+                notas: notas.trim() || null,
+              });
+              if (!r.ok) setError(r.mensaje);
+              else onListo(r);
+            })
+          }
+        >
+          Dar de alta y montar
+        </Boton>
+        <Boton variante="secundario" onClick={onCerrar}>
+          Cancelar
+        </Boton>
+      </div>
+    </Panel>
+  );
+}
+
+// ───────────────────────────────────────────────────────── formulario ODF
+/**
+ * El ODF nace con sus bandejas abiertas.
+ *
+ * Un ODF sin puertos no tiene de dónde salga el cable a la calle, y la ruta
+ * del cliente queda cortada en la caseta sin que nada avise. Es exactamente lo
+ * que pasó con el ODF 002 de Pedriceña: existe desde hace meses, sin sitio y
+ * sin una sola bandeja.
+ */
+function FormularioOdf({
+  rack,
+  sugerida,
+  onCerrar,
+  onListo,
+}: {
+  rack: Rack;
+  sugerida: number;
+  onCerrar: () => void;
+  onListo: (r: Respuesta) => void;
+}) {
+  const [codigo, setCodigo] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [position, setPosition] = useState(sugerida);
+  const [height, setHeight] = useState(1);
+  const [bandejas, setBandejas] = useState(1);
+  const [porBandeja, setPorBandeja] = useState(12);
+  const [conector, setConector] = useState('SC/APC');
+  const [serie, setSerie] = useState('');
+  const [notas, setNotas] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, empezar] = useTransition();
+
+  const tope = Math.max(1, rack.units - height + 1);
+  const fuera = position + height - 1 > rack.units;
+
+  return (
+    <Panel titulo={`Agregar un ODF a ${rack.name}`} onCerrar={onCerrar}>
+      <p className="mb-3 text-sm text-marino-400">
+        Queda dado de alta en <strong>{rack.sitio}</strong>, con sus bandejas abiertas y montado en
+        su unidad.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Código</span>
+          <input
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            placeholder="ODF-CUE-01"
+            className={`${CAMPO} font-mono`}
+            autoFocus
+          />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="text-xs font-medium text-marino-600">Nombre o referencia</span>
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder={`ODF de ${rack.sitio}`}
+            className={CAMPO}
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Cuántas bandejas</span>
+          <input
+            type="number"
+            min={0}
+            max={20}
+            value={bandejas}
+            onChange={(e) => setBandejas(Number(e.target.value))}
+            className={CAMPO}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Puertos por bandeja</span>
+          <select
+            value={porBandeja}
+            onChange={(e) => setPorBandeja(Number(e.target.value))}
+            className={CAMPO}
+          >
+            {[6, 12, 24, 48].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Conector</span>
+          <select value={conector} onChange={(e) => setConector(e.target.value)} className={CAMPO}>
+            {CONECTORES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Unidad donde empieza</span>
+          <input
+            type="number"
+            min={1}
+            max={tope}
+            value={position}
+            onChange={(e) => setPosition(Number(e.target.value))}
+            className={CAMPO}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Cuántas U ocupa</span>
+          <input
+            type="number"
+            min={1}
+            max={20}
+            value={height}
+            onChange={(e) => setHeight(Number(e.target.value))}
+            className={CAMPO}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-marino-600">Número de serie</span>
+          <input
+            value={serie}
+            onChange={(e) => setSerie(e.target.value)}
+            className={`${CAMPO} font-mono`}
+          />
+        </label>
+      </div>
+
+      <label className="mt-3 block">
+        <span className="text-xs font-medium text-marino-600">Observaciones</span>
+        <textarea
+          value={notas}
+          onChange={(e) => setNotas(e.target.value)}
+          rows={2}
+          className={CAMPO}
+        />
+      </label>
+
+      <p className="mt-2 rounded-lg bg-marino-50 px-3 py-2 text-xs text-marino-500">
+        {bandejas > 0 ? (
+          <>
+            Va a nacer con <strong>{bandejas * porBandeja} puertos</strong> en {conector}. Mezclar
+            APC con UPC cuesta medio decibel y una visita.
+          </>
+        ) : (
+          <>Sin bandejas no tiene de dónde salga el cable a la calle. Se le pueden abrir después.</>
+        )}
+      </p>
+
+      {fuera && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-aviso">
+          Así se sale del gabinete: empieza en la U{tope} o más abajo.
+        </p>
+      )}
+      {error && <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-falla">{error}</p>}
+
+      <div className="mt-3 flex gap-2">
+        <Boton
+          cargando={guardando}
+          disabled={codigo.trim().length < 2 || fuera}
+          onClick={() =>
+            empezar(async () => {
+              const r = await montarOdf({
+                rack: rack.id,
+                codigo: codigo.trim(),
+                nombre: nombre.trim() || null,
+                position,
+                height,
+                bandejas,
+                porBandeja,
+                conector,
+                serie: serie.trim() || null,
+                notas: notas.trim() || null,
+              });
+              if (!r.ok) setError(r.mensaje);
+              else onListo(r);
+            })
+          }
+        >
+          Dar de alta y montar
+        </Boton>
+        <Boton variante="secundario" onClick={onCerrar}>
+          Cancelar
+        </Boton>
+      </div>
+    </Panel>
+  );
+}
+
 // ───────────────────────────────────────────────────────── formulario equipo
 function FormularioEquipo({
   rack,
   formulario,
-  olts,
-  odfs,
   sugerida,
   onCerrar,
   onListo,
 }: {
   rack: Rack;
   formulario: { modo: 'nuevo'; kind: string; en?: number } | { modo: 'editar'; item: EquipoRack };
-  olts: OpcionEquipo[];
-  odfs: OpcionEquipo[];
   sugerida: number;
   onCerrar: () => void;
   onListo: (r: Respuesta) => void;
@@ -851,7 +1292,6 @@ function FormularioEquipo({
   const editando = formulario.modo === 'editar' ? formulario.item : null;
   const inicial = formulario.modo === 'nuevo' ? formulario.kind : formulario.item.kind;
   const [kind, setKind] = useState(inicial);
-  const [ref, setRef] = useState(editando?.device_id ?? editando?.element_id ?? '');
   const [label, setLabel] = useState(editando?.label ?? '');
   const [vendor, setVendor] = useState(editando?.vendor ?? '');
   const [model, setModel] = useState(editando?.model ?? '');
@@ -863,19 +1303,6 @@ function FormularioEquipo({
   const [notas, setNotas] = useState(editando?.notes ?? '');
   const [error, setError] = useState<string | null>(null);
   const [guardando, empezar] = useTransition();
-
-  const lista = kind === 'olt' ? olts : kind === 'odf' ? odfs : [];
-  const elegido = lista.find((o) => o.id === ref) ?? null;
-
-  // Al elegir la OLT o el ODF ya capturado, se copian sus datos: el rack lo
-  // ubica, no lo vuelve a capturar. Si se escribiera aparte, en un mes el
-  // rack diría una cosa y la pestaña del equipo otra.
-  useEffect(() => {
-    if (!elegido) return;
-    setLabel((v) => v || elegido.etiqueta);
-    setVendor((v) => v || elegido.vendor || '');
-    setModel((v) => v || elegido.model || '');
-  }, [elegido]);
 
   const tope = Math.max(1, rack.units - height + 1);
   const fuera = position + height - 1 > rack.units;
@@ -894,35 +1321,17 @@ function FormularioEquipo({
             value={kind}
             onChange={(e) => {
               setKind(e.target.value);
-              setRef('');
               if (!editando) setHeight(tipoDe(e.target.value).altura);
             }}
             className={CAMPO}
           >
-            {TIPOS_EQUIPO.map((t) => (
+            {TIPOS_SUELTOS.map((t) => (
               <option key={t.clave} value={t.clave}>
                 {t.icono} {t.rotulo}
               </option>
             ))}
           </select>
         </label>
-
-        {(kind === 'olt' || kind === 'odf') && (
-          <label className="block sm:col-span-2">
-            <span className="text-xs font-medium text-marino-600">
-              ¿Cuál {kind === 'olt' ? 'OLT' : 'ODF'} de las que ya tienes?
-            </span>
-            <select value={ref} onChange={(e) => setRef(e.target.value)} className={CAMPO}>
-              <option value="">— sin amarrar a ninguna —</option>
-              {lista.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.etiqueta}
-                  {o.detalle ? ` · ${o.detalle}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
 
         <label className="block sm:col-span-2">
           <span className="text-xs font-medium text-marino-600">Nombre en el rack</span>
@@ -1047,8 +1456,8 @@ function FormularioEquipo({
                 kind,
                 position,
                 height,
-                device: kind === 'olt' ? ref || null : null,
-                element: kind === 'odf' ? ref || null : null,
+                device: editando?.device_id ?? null,
+                element: editando?.element_id ?? null,
                 vendor: vendor.trim() || null,
                 model: model.trim() || null,
                 serial: serial.trim() || null,

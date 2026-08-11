@@ -1,235 +1,142 @@
 import { Indicador } from '@/componentes/ui/Indicador';
-import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
-import { NuevaTarjeta, NuevasBandejas, Patchear } from '@/app/(panel)/red/ftth/sitio/Editores';
+import { Elegir } from '@/app/(panel)/red/ftth/sitio/Elegir';
+import { Montado } from '@/app/(panel)/red/ftth/sitio/Montado';
+import Rack from '@/app/(panel)/red/ftth/sitio/Rack';
+import Patcheo from '@/app/(panel)/red/ftth/sitio/Patcheo';
+import { listarEquiposRack, listarRacks, listarSitiosConRack } from '@/modulos/red/racks';
 import {
   hilosSinOrigen,
   listarPuertosOdf,
   listarPuertosPon,
-  listarSitiosRed,
   listarTarjetas,
 } from '@/modulos/red/olt';
-import { listarDispositivos, listarElementos } from '@/modulos/red/consultas';
+import { listarZonas } from '@/modulos/clientes/consultas';
 import { numero } from '@/lib/formato';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PaginaSitio() {
-  const [sitios, tarjetas, pones, puertosOdf, olts, odfs, hilos] = await Promise.all([
-    listarSitiosRed(),
+/**
+ * La caseta, de arriba a abajo.
+ *
+ * Antes esto vivía en dos pestañas: una para la OLT y el ODF, otra para el
+ * gabinete. Se separaron por cómo está guardado, no por cómo se trabaja, y en
+ * campo es un solo momento: se llega a la comunidad, se abre el gabinete, y de
+ * ahí se ve todo. Ahora se captura en el orden en que se instala —comunidad,
+ * rack, ODF y OLT, tarjetas— sin cambiar de pantalla.
+ */
+export default async function PaginaSitio({
+  searchParams,
+}: {
+  searchParams: Promise<{ sitio?: string }>;
+}) {
+  const { sitio: pedido } = await searchParams;
+
+  const [sitios, racks, equipos, tarjetas, pones, puertosOdf, hilos, zonas] = await Promise.all([
+    listarSitiosConRack(),
+    listarRacks(),
+    listarEquiposRack(),
     listarTarjetas(),
     listarPuertosPon(),
     listarPuertosOdf(),
-    listarDispositivos(['olt']),
-    listarElementos(['odf']),
     hilosSinOrigen(),
+    listarZonas(),
   ]);
 
-  const patcheados = pones.filter((p) => p.odf_port_id).length;
-  const conCable = puertosOdf.filter((p) => p.out_strand_id).length;
-  const libres = puertosOdf.filter((p) => p.status === 'libre').length;
+  // Si no se pide ninguna, se abre la que ya tiene gabinete: es la que se está
+  // trabajando. Una lista de doce comunidades vacías no le sirve a nadie.
+  const elegido =
+    (pedido && sitios.some((s) => s.id === pedido) ? pedido : null) ??
+    sitios.find((s) => s.racks > 0)?.id ??
+    sitios[0]?.id ??
+    null;
 
-  // Los puertos del ODF se agrupan por bandeja, que es como se ven parado
-  // enfrente: una charola a la vez, no una lista de cien renglones.
-  const porOdf = new Map<string, typeof puertosOdf>();
-  for (const p of puertosOdf) {
-    const k = p.odf;
-    if (!porOdf.has(k)) porOdf.set(k, []);
-    porOdf.get(k)!.push(p);
-  }
+  const sitio = sitios.find((s) => s.id === elegido) ?? null;
+  const susRacks = racks.filter((r) => r.site_id === elegido);
+  const idsRack = new Set(susRacks.map((r) => r.id));
+  const susEquipos = equipos.filter((e) => idsRack.has(e.rack_id));
+  const susOdf = new Set(susEquipos.filter((e) => e.element_id).map((e) => e.element_id));
+  const susOlt = new Set(susEquipos.filter((e) => e.device_id).map((e) => e.device_id));
+
+  const susTarjetas = tarjetas.filter((t) => susOlt.has(t.device_id));
+  const idsTarjeta = new Set(susTarjetas.map((t) => t.id));
+  const susPon = pones.filter((p) => idsTarjeta.has(p.card_id));
+  const susPuertos = puertosOdf.filter((p) => susOdf.has(p.odf_id));
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-sm text-marino-500">
-          Lo que hay dentro de la caseta. Aquí empieza la red: la OLT reparte por sus puertos PON,
-          cada PON llega a un puerto del ODF, y de ese puerto arranca el hilo que se va a la calle.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <NuevaTarjeta olts={olts.map((o) => ({ id: o.id, name: o.name }))} />
-          <NuevasBandejas odfs={odfs.map((o) => ({ id: o.id, code: o.code }))} />
-        </div>
-      </div>
+      <p className="mb-5 max-w-2xl text-sm text-marino-500">
+        La caseta de cada comunidad, de arriba a abajo: el gabinete, y adentro el ODF y la OLT con
+        sus tarjetas. Se captura en el orden en que se instala.
+      </p>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador
-          valor={numero(pones.length)}
-          etiqueta="Puertos PON"
-          detalle={`${tarjetas.length} tarjetas`}
-        />
-        <Indicador
-          valor={`${numero(patcheados)} / ${numero(pones.length)}`}
-          etiqueta="PON patcheados"
-          tono="marca"
-        />
-        <Indicador valor={numero(conCable)} etiqueta="Puertos con cable" tono="ok" />
-        <Indicador
-          valor={numero(libres)}
-          etiqueta="Puertos del ODF libres"
-          tono={libres === 0 ? 'aviso' : 'neutro'}
-        />
-      </div>
+      <Elegir
+        sitios={sitios.map((s) => ({
+          id: s.id,
+          name: s.name,
+          zona: s.zona,
+          racks: Number(s.racks),
+          olts: Number(s.olts),
+          odfs: Number(s.odfs),
+        }))}
+        elegido={elegido}
+        zonas={zonas.map((z) => ({ id: z.id, name: z.name }))}
+      />
 
-      {sitios.length > 0 && (
-        <Tarjeta className="mb-6" titulo="Los sitios">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-marino-100 text-left text-xs uppercase tracking-wide text-marino-400">
-                  <th className="pb-2 pr-3 font-medium">Sitio</th>
-                  <th className="pb-2 pr-3 font-medium">Zona</th>
-                  <th className="pb-2 pr-3 text-right font-medium">OLT</th>
-                  <th className="pb-2 pr-3 text-right font-medium">Tarjetas</th>
-                  <th className="pb-2 pr-3 text-right font-medium">PON</th>
-                  <th className="pb-2 pr-3 text-right font-medium">ODF</th>
-                  <th className="pb-2 text-right font-medium">Puertos libres</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-marino-100">
-                {sitios.map((s) => (
-                  <tr key={s.id}>
-                    <td className="py-2 pr-3 font-medium text-marino-800">{s.name}</td>
-                    <td className="py-2 pr-3 text-marino-500">{s.zona ?? '—'}</td>
-                    <td className="py-2 pr-3 text-right text-marino-600">{s.olts}</td>
-                    <td className="py-2 pr-3 text-right text-marino-600">{s.tarjetas}</td>
-                    <td className="py-2 pr-3 text-right text-marino-600">
-                      {s.pon_patcheados}/{s.puertos_pon}
-                    </td>
-                    <td className="py-2 pr-3 text-right text-marino-600">{s.odfs}</td>
-                    <td className="py-2 text-right">
-                      {s.puertos_odf === 0 ? (
-                        <span className="text-marino-300">sin bandejas</span>
-                      ) : (
-                        <Insignia tono={s.odf_libres === 0 ? 'falla' : 'ok'}>
-                          {s.odf_libres} de {s.puertos_odf}
-                        </Insignia>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Tarjeta>
-      )}
-
-      {tarjetas.length > 0 && (
-        <Tarjeta className="mb-6" titulo="Tarjetas y puertos PON">
-          <div className="space-y-4">
-            {tarjetas.map((t) => {
-              const suyos = pones.filter((p) => p.card_id === t.id);
-              return (
-                <div key={t.id}>
-                  <p className="mb-2 text-sm font-medium text-marino-700">
-                    {t.olt} · slot {t.slot_number}
-                    {t.card_type && (
-                      <span className="ml-2 font-normal text-marino-400">{t.card_type}</span>
-                    )}
-                    <span className="ml-2 text-xs font-normal text-marino-400">
-                      {t.patcheados} de {t.puertos} patcheados
-                    </span>
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {suyos.map((p) => (
-                      <span
-                        key={p.id}
-                        title={
-                          p.odf
-                            ? `${p.etiqueta} → ${p.odf} bandeja ${p.tray_number} puerto ${p.odf_port_number}${
-                                p.cable ? ` → ${p.cable} hilo ${p.strand_number}` : ''
-                              }`
-                            : `${p.etiqueta} · sin patchear`
-                        }
-                        className={`rounded-md border px-2 py-1 font-mono text-xs ${
-                          p.odf_port_id
-                            ? 'border-green-200 bg-green-50 text-exito'
-                            : 'border-marino-200 bg-white text-marino-500'
-                        }`}
-                      >
-                        {p.etiqueta}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-3 text-xs text-marino-400">
-            En verde los que ya tienen latiguillo al ODF. Pasa el cursor por uno para ver a dónde
-            va.
-          </p>
-        </Tarjeta>
-      )}
-
-      {porOdf.size === 0 ? (
+      {!sitio ? (
         <Tarjeta>
           <div className="py-12 text-center">
-            <p className="text-3xl">🧷</p>
-            <p className="mt-3 text-sm font-medium text-marino-800">El ODF no tiene bandejas</p>
+            <p className="text-3xl">🏘️</p>
+            <p className="mt-3 text-sm font-medium text-marino-800">
+              Todavía no hay ninguna caseta
+            </p>
             <p className="mx-auto mt-1 max-w-md text-sm text-marino-400">
-              Da de alta el ODF en <strong>Elementos</strong> y luego ábrele sus bandejas aquí. Sin
-              puertos de ODF, el cable de la calle no tiene de dónde salir y la ruta de los clientes
-              queda cortada en la caseta.
+              Empieza por la comunidad: es donde va el gabinete. Adentro del gabinete se cuelga el
+              ODF y la OLT, y de la OLT sus tarjetas.
             </p>
           </div>
         </Tarjeta>
       ) : (
-        [...porOdf.entries()].map(([odf, lista]) => {
-          const bandejas = [...new Set(lista.map((p) => p.tray_number))].sort((a, b) => a - b);
-          return (
-            <Tarjeta
-              key={odf}
-              className="mb-4"
-              titulo={odf}
-              descripcion={`${lista.length} puertos · ${lista.filter((p) => p.status === 'libre').length} libres`}
-            >
-              {bandejas.map((b) => (
-                <div key={b} className="mb-4 last:mb-0">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-marino-400">
-                    Bandeja {b}
-                  </p>
-                  <div className="space-y-1">
-                    {lista
-                      .filter((p) => p.tray_number === b)
-                      .map((p) => (
-                        <div key={p.id} className="rounded-lg border border-marino-100 px-3 py-2">
-                          <div className="flex flex-wrap items-center gap-2 text-sm">
-                            <span className="w-8 shrink-0 font-mono font-semibold text-marino-800">
-                              {p.port_number}
-                            </span>
-                            {p.pon ? (
-                              <span className="text-marino-600">
-                                <span className="text-marino-400">entra</span>{' '}
-                                <span className="font-mono">{p.pon}</span>
-                                <span className="text-marino-400"> de {p.olt}</span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-marino-300">sin PON</span>
-                            )}
-                            <span className="text-marino-300">→</span>
-                            {p.cable ? (
-                              <span className="text-marino-600">
-                                <span className="font-mono">{p.cable}</span>
-                                <span className="text-marino-400">
-                                  {' '}
-                                  hilo {p.strand_number} ({p.color_hilo})
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-marino-300">sin cable</span>
-                            )}
-                            <span className="ml-auto">
-                              <Patchear puerto={p} pones={pones} hilos={hilos} />
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              ))}
-            </Tarjeta>
-          );
-        })
+        <>
+          <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Indicador
+              valor={numero(Number(sitio.racks))}
+              etiqueta="Gabinetes"
+              detalle={sitio.zona ?? 'sin zona'}
+            />
+            <Indicador
+              valor={`${numero(Number(sitio.ocupadas))} / ${numero(Number(sitio.unidades))}`}
+              etiqueta="Unidades ocupadas"
+              tono="marca"
+            />
+            <Indicador
+              valor={`${numero(Number(sitio.pon_patcheados))} / ${numero(Number(sitio.puertos_pon))}`}
+              etiqueta="PON con latiguillo"
+              detalle={`${sitio.tarjetas} tarjetas en ${sitio.olts} OLT`}
+              tono="ok"
+            />
+            <Indicador
+              valor={numero(Number(sitio.odf_libres))}
+              etiqueta="Puertos del ODF libres"
+              detalle={`de ${sitio.puertos_odf}`}
+              tono={
+                Number(sitio.puertos_odf) > 0 && Number(sitio.odf_libres) === 0 ? 'aviso' : 'neutro'
+              }
+            />
+          </div>
+
+          <Rack racks={susRacks} equipos={susEquipos} sitio={{ id: sitio.id, name: sitio.name }} />
+
+          <Montado
+            equipos={susEquipos}
+            tarjetas={susTarjetas}
+            pones={susPon}
+            puertosOdf={susPuertos}
+            hilos={hilos}
+          />
+
+          <Patcheo pones={susPon} puertos={susPuertos} />
+        </>
       )}
     </div>
   );

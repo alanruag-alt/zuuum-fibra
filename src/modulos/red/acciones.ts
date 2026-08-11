@@ -22,7 +22,7 @@ export async function guardarSitio(
   const id = limpio(datos, 'id');
 
   const supabase = await crearClienteServidor();
-  const { error } = await supabase.rpc('guardar_sitio', {
+  const { data, error } = await supabase.rpc('guardar_sitio', {
     p_id: id || null,
     p_nombre: limpio(datos, 'nombre') || null,
     p_tipo: limpio(datos, 'tipo') || 'tower',
@@ -35,8 +35,15 @@ export async function guardarSitio(
   if (error) return { ok: false, mensaje: error.message };
 
   revalidatePath('/red/wisp');
+  revalidatePath('/red/ftth/sitio');
   revalidatePath('/mapa');
-  return { ok: true, mensaje: id ? 'Sitio actualizado.' : 'Sitio dado de alta.' };
+  // Se devuelve el id para poder llevar a la pantalla directo a la caseta que
+  // se acaba de dar de alta, en vez de dejarla buscándola en la lista.
+  return {
+    ok: true,
+    mensaje: id ? 'Sitio actualizado.' : 'Sitio dado de alta.',
+    id: (data as string | null) ?? id ?? undefined,
+  };
 }
 
 export async function guardarDispositivo(

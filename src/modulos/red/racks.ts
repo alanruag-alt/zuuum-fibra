@@ -69,3 +69,32 @@ export async function listarEquiposRack(): Promise<EquipoRack[]> {
   if (error) return [];
   return (data ?? []) as unknown as EquipoRack[];
 }
+
+export interface SitioConRack {
+  id: string;
+  name: string;
+  site_type: string;
+  zone_id: string | null;
+  zona: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  is_active: boolean;
+  racks: number;
+  unidades: number;
+  ocupadas: number;
+  olts: number;
+  odfs: number;
+  tarjetas: number;
+  puertos_pon: number;
+  pon_patcheados: number;
+  puertos_odf: number;
+  odf_libres: number;
+}
+
+/** Cada comunidad con su gabinete, para el selector de arriba. */
+export async function listarSitiosConRack(): Promise<SitioConRack[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.from('v_sitios_con_rack').select('*').order('name');
+  if (error) return [];
+  return (data ?? []) as unknown as SitioConRack[];
+}

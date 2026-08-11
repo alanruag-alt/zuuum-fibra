@@ -7,6 +7,8 @@ import { crearClienteAdministrador } from '@/lib/supabase/administrador';
 export interface Respuesta {
   ok: boolean;
   mensaje: string;
+  /** Lo que se acaba de crear, cuando la pantalla necesita ir para allá. */
+  id?: string;
 }
 
 /**

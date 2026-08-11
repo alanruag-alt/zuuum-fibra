@@ -5,8 +5,8 @@ import { crearClienteServidor } from '@/lib/supabase/servidor';
 import type { Respuesta } from '@/modulos/admin/acciones';
 
 function refrescar() {
-  revalidatePath('/red/ftth/racks');
   revalidatePath('/red/ftth/sitio');
+  revalidatePath('/red/ftth');
   revalidatePath('/red/equipos');
 }
 
@@ -150,4 +150,80 @@ export async function conectarPonAOdf(datos: {
   if (error) return { ok: false, mensaje: error.message };
   refrescar();
   return { ok: true, mensaje: String(data ?? 'Latiguillo puesto.') };
+}
+
+/**
+ * Dar de alta la OLT y montarla, en un solo movimiento.
+ *
+ * El sitio y la zona no se mandan: la base los saca del rack. Un rack vive
+ * dentro de un sitio, y volver a preguntarlo solo abre la puerta a que no
+ * coincidan.
+ */
+export async function montarOlt(datos: {
+  rack: string;
+  nombre: string;
+  marca?: string | null;
+  modelo?: string | null;
+  serie?: string | null;
+  ip?: string | null;
+  position: number;
+  height: number;
+  tarjetas: number;
+  puertos: number;
+  tipoTarjeta?: string | null;
+  notas?: string | null;
+}): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('montar_olt', {
+    p_rack: datos.rack,
+    p_nombre: datos.nombre,
+    p_marca: datos.marca || null,
+    p_modelo: datos.modelo || null,
+    p_serie: datos.serie || null,
+    p_ip: datos.ip || null,
+    p_position: datos.position,
+    p_height: datos.height,
+    p_tarjetas: datos.tarjetas,
+    p_puertos: datos.puertos,
+    p_tipo_tarjeta: datos.tipoTarjeta || null,
+    p_notas: datos.notas || null,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+  refrescar();
+  const fila = (data ?? [])[0] as { mensaje?: string } | undefined;
+  return { ok: true, mensaje: fila?.mensaje ?? 'OLT dada de alta y montada.' };
+}
+
+/** Lo mismo con el ODF: nace con sus bandejas abiertas. */
+export async function montarOdf(datos: {
+  rack: string;
+  codigo: string;
+  nombre?: string | null;
+  position: number;
+  height: number;
+  bandejas: number;
+  porBandeja: number;
+  conector?: string | null;
+  serie?: string | null;
+  notas?: string | null;
+}): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('montar_odf', {
+    p_rack: datos.rack,
+    p_codigo: datos.codigo,
+    p_nombre: datos.nombre || null,
+    p_position: datos.position,
+    p_height: datos.height,
+    p_bandejas: datos.bandejas,
+    p_por_bandeja: datos.porBandeja,
+    p_conector: datos.conector || 'SC/APC',
+    p_serie: datos.serie || null,
+    p_notas: datos.notas || null,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+  refrescar();
+  const fila = (data ?? [])[0] as { mensaje?: string } | undefined;
+  return { ok: true, mensaje: fila?.mensaje ?? 'ODF dado de alta y montado.' };
 }
