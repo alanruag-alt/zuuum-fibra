@@ -6,6 +6,7 @@ const SECCIONES = [
   { ruta: '/red/ftth/cables', etiqueta: 'Cables e hilos' },
   { ruta: '/red/ftth/fusiones', etiqueta: 'Fusiones' },
   { ruta: '/red/ftth/naps', etiqueta: 'NAP y puertos' },
+  { ruta: '/red/ftth/mapa', etiqueta: 'Mapa' },
   { ruta: '/red/ftth/traza', etiqueta: 'Trazabilidad' },
   { ruta: '/red/ftth/impacto', etiqueta: 'Impacto de corte' },
 ];
