@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { Boton } from '@/componentes/ui/Boton';
+import { ImportarKmz } from '@/app/(panel)/red/posteria/Editor';
 import {
+  type Corte,
   colocarElemento,
+  colocarNapConCaja,
   colocarPoste,
+  colocarSitio,
+  diagnosticarCorte,
   guardarTrazo,
   guardarVistaZona,
   moverPunto,
@@ -48,17 +53,33 @@ function metros(a: [number, number], b: [number, number]) {
 
 const COLOR_TRAZO = ['#f2820c', '#16a34a', '#2563eb', '#db2777', '#0ea5e9', '#7c3aed'];
 
-type Modo = 'ver' | 'nap' | 'caja' | 'odf' | 'poste' | 'ruta' | 'mover';
+type Modo = 'ver' | 'sitio' | 'nap' | 'caja' | 'napcaja' | 'odf' | 'poste' | 'ruta' | 'mover';
 
 const MODOS: { id: Modo; texto: string; icono: string }[] = [
   { id: 'ver', texto: 'Navegar', icono: '🧭' },
-  { id: 'nap', texto: 'Poner NAP', icono: '📡' },
-  { id: 'caja', texto: 'Poner caja', icono: '📦' },
-  { id: 'odf', texto: 'Poner ODF', icono: '🏢' },
-  { id: 'poste', texto: 'Poner poste', icono: '📍' },
+  { id: 'sitio', texto: 'Colocar sitio', icono: '🏢' },
+  { id: 'caja', texto: 'Colocar caja', icono: '📦' },
+  { id: 'nap', texto: 'Colocar NAP', icono: '📡' },
+  { id: 'napcaja', texto: 'NAP + caja', icono: '📦📡' },
+  { id: 'odf', texto: 'Colocar ODF', icono: '🗄️' },
+  { id: 'poste', texto: 'Colocar poste', icono: '📍' },
   { id: 'ruta', texto: 'Dibujar ruta', icono: '✏️' },
-  { id: 'mover', texto: 'Mover', icono: '✋' },
+  { id: 'mover', texto: 'Mover punto', icono: '✋' },
 ];
+
+/** Lo que dice cada modo, para no tener que adivinar qué hace. */
+const AYUDA: Record<Modo, string> = {
+  ver: 'Arrastra para moverte, rueda para acercar. Pasa el cursor por un punto para ver qué es.',
+  sitio: 'Clic donde está la torre, el POP o la caseta de la OLT.',
+  caja: 'Clic donde está la caja de empalme. Va sobre la línea del cable.',
+  nap: 'Clic donde está la NAP. Va sobre la línea del cable.',
+  napcaja:
+    'Pone la NAP y su caja de empalme en el mismo punto, que es como van en la calle: la NAP colgada de la caja donde se hace el empalme.',
+  odf: 'Clic donde está el distribuidor, normalmente dentro de la caseta.',
+  poste: 'Clic en cada poste. También los puedes traer de golpe con «Importar postes».',
+  ruta: 'Clic para ir marcando el recorrido del cable, poste por poste. Arrastra para moverte.',
+  mover: 'Clic a lo que quieras mover y luego a su lugar correcto.',
+};
 
 interface Props {
   zonas: Zona[];
@@ -84,6 +105,11 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
   const gesto = useRef<{ movido: number } | null>(null);
   const [moviendo, setMoviendo] = useState<PuntoMapa | null>(null);
   const [recado, setRecado] = useState<string | null>(null);
+  const [verPostes, setVerPostes] = useState(true);
+  const [verNumeros, setVerNumeros] = useState(true);
+  const [pegarAPostes, setPegarAPostes] = useState(true);
+  const [corte, setCorte] = useState<Corte | null>(null);
+  const [abrirCorte, setAbrirCorte] = useState(false);
   const [guardando, empezar] = useTransition();
 
   // El centro cambia cuando uno cambia de zona: cada localidad tiene el suyo.
@@ -104,6 +130,7 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     return () => window.removeEventListener('resize', medir);
   }, []);
 
+  const cuantosPostes = puntos.filter((p) => p.clase === 'poste').length;
   const origen = proyectar(centro.lat, centro.lon, zoom);
   const izq = origen.x - tam.w / 2;
   const arriba = origen.y - tam.h / 2;
@@ -155,6 +182,31 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     gesto.current = { movido: 0 };
   }
 
+  /**
+   * Pegar a postes.
+   *
+   * La ruta del cable va por la postería, no por en medio de la calle. Si cada
+   * clic se ajusta al poste más cercano, el trazo queda exactamente donde está
+   * la fibra —y de paso los vanos salen bien, porque se miden entre postes de
+   * verdad y no entre puntos aproximados.
+   */
+  function ajustar(lat: number, lon: number): [number, number] {
+    if (!pegarAPostes || !verPostes) return [lat, lon];
+    const aqui = aPantalla(lat, lon);
+    let mejor: PuntoMapa | null = null;
+    let cerca = 22; // píxeles
+    for (const p of puntos) {
+      if (p.clase !== 'poste') continue;
+      const s2 = aPantalla(p.lat, p.lon);
+      const d = Math.hypot(s2.x - aqui.x, s2.y - aqui.y);
+      if (d < cerca) {
+        cerca = d;
+        mejor = p;
+      }
+    }
+    return mejor ? [mejor.lat, mejor.lon] : [lat, lon];
+  }
+
   function alSoltar(e: React.MouseEvent) {
     // Seis píxeles de tolerancia: un clic normal mueve dos o tres sin querer,
     // sobre todo con la almohadilla de una laptop.
@@ -166,7 +218,7 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     const c = aCoordenada(x, y);
 
     if (modo === 'ruta') {
-      setDibujando((d) => [...d, [c.lat, c.lon]]);
+      setDibujando((d) => [...d, ajustar(c.lat, c.lon)]);
       return;
     }
 
@@ -175,6 +227,36 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
         const r = await moverPunto(moviendo.id, moviendo.clase, c.lat, c.lon);
         setRecado(r.mensaje);
         setMoviendo(null);
+      });
+      return;
+    }
+
+    if (modo === 'sitio') {
+      const nombre = window.prompt('¿Cómo se llama el sitio? (Cerro de Velardeña, caseta OLT…)');
+      if (!nombre?.trim()) return;
+      empezar(async () => {
+        const r = await colocarSitio(zonaActual, nombre.trim(), 'tower', c.lat, c.lon);
+        setRecado(r.mensaje);
+      });
+      return;
+    }
+
+    if (modo === 'napcaja') {
+      const nap = window.prompt('Código de la NAP (por ejemplo NAP-CUE-012)');
+      if (!nap?.trim()) return;
+      const caja = window.prompt('Código de la caja', nap.trim().replace(/^NAP/i, 'CAJA')) ?? '';
+      if (!caja.trim()) return;
+      const puertos = Number(window.prompt('¿Cuántos puertos tiene la NAP?', '8') ?? 8);
+      empezar(async () => {
+        const r = await colocarNapConCaja(
+          nap.trim(),
+          caja.trim(),
+          zonaActual,
+          c.lat,
+          c.lon,
+          puertos,
+        );
+        setRecado(r.mensaje);
       });
       return;
     }
@@ -278,6 +360,28 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
             </button>
           ))}
 
+        {puedeEditar && (
+          <ImportarKmz
+            zonas={zonas}
+            zonaPorDefecto={zonaActual}
+            texto="📥 Importar postes"
+            clase="px-2.5 py-2 text-xs"
+          />
+        )}
+
+        {puedeEditar && (
+          <Boton
+            variante="oscuro"
+            onClick={() => {
+              setAbrirCorte((v) => !v);
+              setModo('ver');
+            }}
+            className="bg-falla px-3 py-2 text-xs hover:opacity-90"
+          >
+            🚨 Diagnosticar corte
+          </Boton>
+        )}
+
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
@@ -308,6 +412,39 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
             Dejar así esta vista
           </Boton>
         </div>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-marino-600">
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={verPostes}
+            onChange={(e) => setVerPostes(e.target.checked)}
+          />
+          📍 Ver postes ({cuantosPostes})
+        </label>
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={verNumeros}
+            onChange={(e) => setVerNumeros(e.target.checked)}
+          />
+          Nº
+        </label>
+        {puedeEditar && (
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={pegarAPostes}
+              onChange={(e) => setPegarAPostes(e.target.checked)}
+            />
+            🧲 Pegar a postes
+            <span className="text-marino-400">
+              — al dibujar, cada clic se ajusta al poste más cercano
+            </span>
+          </label>
+        )}
+        <span className="ml-auto text-marino-400">{AYUDA[modo]}</span>
       </div>
 
       {modo === 'ruta' && (
@@ -357,6 +494,105 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
           <p className="w-full text-xs text-marino-500">
             Clic para poner un punto, <strong>arrastra para moverte</strong> sin perder lo que
             llevas, y la rueda para acercar. El trazo aguanta los puntos que quieras.
+          </p>
+        </div>
+      )}
+
+      {abrirCorte && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50/60 p-3">
+          <p className="mb-2 text-sm font-medium text-marino-800">🚨 ¿Dónde está el corte?</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const d = new FormData(e.currentTarget);
+              const cable = String(d.get('cable') ?? '');
+              const metros = Number(d.get('metros') ?? 0);
+              if (!cable || !metros) return;
+              empezar(async () => {
+                const r = await diagnosticarCorte(
+                  cable,
+                  metros,
+                  d.get('desde') !== 'fin',
+                  d.get('descontar') === 'si',
+                );
+                setRecado(r.mensaje);
+                if (r.corte) {
+                  setCorte(r.corte);
+                  setCentro({ lat: Number(r.corte.lat), lon: Number(r.corte.lon) });
+                  if (zoom < 16) setZoom(16);
+                }
+              });
+            }}
+            className="flex flex-wrap items-end gap-2"
+          >
+            <label className="block">
+              <span className="text-xs font-medium text-marino-600">Cable</span>
+              <select
+                name="cable"
+                required
+                className="mt-1 w-48 rounded-lg border border-marino-200 px-3 py-2 text-sm"
+              >
+                <option value="">Elige</option>
+                {cables
+                  .filter((c) => trazos.some((t) => t.id === c.id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.code}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-marino-600">Metros del OTDR</span>
+              <input
+                name="metros"
+                type="number"
+                step="0.1"
+                min="1"
+                required
+                placeholder="1340"
+                className="mt-1 w-32 rounded-lg border border-marino-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-marino-600">Medido desde</span>
+              <select
+                name="desde"
+                className="mt-1 w-36 rounded-lg border border-marino-200 px-3 py-2 text-sm"
+              >
+                <option value="inicio">El inicio</option>
+                <option value="fin">El final</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 pb-2.5">
+              <input type="checkbox" name="descontar" value="si" defaultChecked />
+              <span className="text-xs text-marino-600">
+                Descontar las reservas
+                <span className="block text-[11px] text-marino-400">
+                  Sin esto el punto sale más adelante de donde está.
+                </span>
+              </span>
+            </label>
+            <Boton type="submit" variante="oscuro" cargando={guardando}>
+              Ubicar el corte
+            </Boton>
+            {corte && (
+              <Boton
+                type="button"
+                variante="texto"
+                onClick={() => {
+                  setCorte(null);
+                  setRecado(null);
+                }}
+              >
+                Quitar la marca
+              </Boton>
+            )}
+          </form>
+          <p className="mt-2 text-xs text-marino-500">
+            El OTDR mide fibra, no banqueta: sus metros incluyen lo que se dejó enrollado en el
+            sitio, en cada poste y en cada caja. Esta cuenta descuenta esas reservas para poner el
+            punto donde de verdad hay que abrir.
           </p>
         </div>
       )}
@@ -460,9 +696,10 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
         </svg>
 
         {puntos.map((p) => {
+          const esPoste = p.clase === 'poste';
+          if (esPoste && !verPostes) return null;
           const s = aPantalla(p.lat, p.lon);
           if (s.x < -40 || s.y < -40 || s.x > tam.w + 40 || s.y > tam.h + 40) return null;
-          const esPoste = p.clase === 'poste';
           return (
             <button
               key={p.id}
@@ -483,9 +720,11 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
                 } ${moviendo?.id === p.id ? 'ring-2 ring-red-500' : ''}`}
                 style={{ background: p.color }}
               />
-              {!esPoste && (
+              {(!esPoste || verNumeros) && (
                 <span
-                  className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold"
+                  className={`pointer-events-none absolute left-1/2 top-full -translate-x-1/2 whitespace-nowrap font-semibold ${
+                    esPoste ? 'text-[9px] text-marino-500' : 'text-[10px]'
+                  }`}
                   style={{ textShadow: '0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff' }}
                 >
                   {p.nombre}
@@ -494,6 +733,22 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
             </button>
           );
         })}
+
+        {corte && (
+          <div
+            className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: aPantalla(Number(corte.lat), Number(corte.lon)).x,
+              top: aPantalla(Number(corte.lat), Number(corte.lon)).y,
+              zIndex: 20,
+            }}
+          >
+            <span className="block h-6 w-6 animate-pulse rounded-full border-4 border-red-600 bg-red-500/40" />
+            <span className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              corte · {Math.round(Number(corte.geo_m))} m
+            </span>
+          </div>
+        )}
 
         <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-white/85 px-1.5 py-0.5 text-[9px] text-marino-500">
           © OpenStreetMap

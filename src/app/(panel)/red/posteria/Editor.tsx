@@ -61,14 +61,31 @@ export function Renumerar({ cables }: { cables: Cable[] }) {
   );
 }
 
-export function ImportarKmz({ zonas }: { zonas: Zona[] }) {
+/**
+ * Importar un KMZ.
+ *
+ * Vive aquí, pero también se usa desde el mapa: allá se llama «Importar
+ * postes» y llega con la zona que se está viendo ya elegida, porque uno
+ * importa el KMZ de la localidad que trae en pantalla, no de otra.
+ */
+export function ImportarKmz({
+  zonas,
+  zonaPorDefecto,
+  texto = 'Importar un KMZ',
+  clase,
+}: {
+  zonas: Zona[];
+  zonaPorDefecto?: string;
+  texto?: string;
+  clase?: string;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [estado, accion, enviando] = useActionState<Respuesta | null, FormData>(importarKmz, null);
 
   if (!abierto) {
     return (
-      <Boton variante="secundario" onClick={() => setAbierto(true)}>
-        Importar un KMZ
+      <Boton variante="secundario" onClick={() => setAbierto(true)} className={clase}>
+        {texto}
       </Boton>
     );
   }
@@ -93,7 +110,7 @@ export function ImportarKmz({ zonas }: { zonas: Zona[] }) {
           </label>
           <label className="block">
             <span className="text-sm font-medium text-marino-600">Zona</span>
-            <select name="zona" className={CAMPO}>
+            <select name="zona" defaultValue={zonaPorDefecto ?? ''} className={CAMPO}>
               <option value="">—</option>
               {zonas.map((z) => (
                 <option key={z.id} value={z.id}>

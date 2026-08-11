@@ -214,6 +214,7 @@ export async function importarKmz(
 
   revalidatePath('/red/posteria');
   revalidatePath('/red/ftth/cables');
+  revalidatePath('/red/ftth/mapa');
   revalidatePath('/mapa');
 
   const partes: string[] = [];
