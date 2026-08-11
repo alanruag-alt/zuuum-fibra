@@ -5,6 +5,7 @@ import { Pestanas } from '@/componentes/ui/Pestanas';
 // termina en el cliente. Quien capture de arriba a abajo captura bien.
 const SECCIONES = [
   { ruta: '/red/ftth/sitio', etiqueta: 'Sitio, OLT y ODF' },
+  { ruta: '/red/ftth/racks', etiqueta: 'Racks' },
   { ruta: '/red/ftth', etiqueta: 'Elementos', exacta: true },
   { ruta: '/red/ftth/cables', etiqueta: 'Cables e hilos' },
   { ruta: '/red/ftth/fusiones', etiqueta: 'Fusiones' },

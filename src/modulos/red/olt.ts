@@ -81,6 +81,9 @@ export interface PuertoOdf {
   cable: string | null;
   strand_number: number | null;
   color_hilo: string | null;
+  /** La etiqueta del latiguillo que va de la OLT a este puerto. */
+  jumper_code: string | null;
+  responsable: string | null;
 }
 
 export async function listarSitiosRed(): Promise<SitioRed[]> {
