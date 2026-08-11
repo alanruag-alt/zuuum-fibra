@@ -16,6 +16,11 @@ export interface ElementoRed {
   servicios: number;
   ocupacion_pct: number | null;
   semaforo: 'lleno' | 'por_llenarse' | 'con_lugar' | 'sin_capacidad';
+  /** De qué cable cuelga. Se calcula al guardar; no se captura. */
+  cable_id: string | null;
+  cable: string | null;
+  /** En qué metro del recorrido de ese cable cae. */
+  cable_pos_m: number | null;
 }
 
 export interface Dispositivo {

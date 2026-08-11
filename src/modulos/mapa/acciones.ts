@@ -55,7 +55,10 @@ export async function colocarElemento(
   refrescar();
   return {
     ok: true,
-    mensaje: `${codigo.toUpperCase()} quedó puesta ahí.`,
+    mensaje:
+      tipo === 'odf'
+        ? `${codigo.toUpperCase()} quedó puesto ahí.`
+        : `${codigo.toUpperCase()} quedó pegada a la fibra.`,
   };
 }
 
@@ -116,7 +119,20 @@ export async function moverPunto(
   const supabase = await crearClienteServidor();
   const [prefijo, real] = id.split(':');
 
-  const tabla = prefijo === 'p' ? 'poles' : prefijo === 's' ? 'network_sites' : 'network_elements';
+  // Los elementos de red pasan por su función: ahí es donde vive la regla de
+  // que una NAP o una caja no se puede sacar de la fibra ni arrastrando.
+  if (prefijo === 'e') {
+    const { data, error } = await supabase.rpc('mover_elemento', {
+      p_id: real,
+      p_lat: lat,
+      p_lon: lon,
+    });
+    if (error) return { ok: false, mensaje: error.message };
+    refrescar();
+    return { ok: true, mensaje: String(data ?? 'Movido a su lugar.') };
+  }
+
+  const tabla = prefijo === 'p' ? 'poles' : 'network_sites';
 
   const { error } = await supabase
     .from(tabla)
@@ -199,7 +215,7 @@ export async function colocarNapConCaja(
   refrescar();
   return {
     ok: true,
-    mensaje: `${codigoNap.toUpperCase()} y su caja ${codigoCaja.toUpperCase()} quedaron ahí. Las fusiones se capturan en la pestaña Fusiones.`,
+    mensaje: `${codigoNap.toUpperCase()} y su caja ${codigoCaja.toUpperCase()} quedaron pegadas a la fibra. Las fusiones se capturan en la pestaña Fusiones.`,
   };
 }
 

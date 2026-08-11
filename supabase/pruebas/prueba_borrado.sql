@@ -123,14 +123,21 @@ drop table if exists t_nap;
 create temporary table t_nap (id uuid);
 
 do $$
-declare v_nap uuid; v_srv uuid;
+declare v_nap uuid; v_srv uuid; v_cab uuid;
 begin
   set local role authenticated;
   set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 
+  -- Una NAP no existe en el aire: va sobre la línea de un cable. Así que
+  -- primero se tiende el cable y se le dibuja el trazo.
+  v_cab := public.guardar_cable(null, 'CAB-BORRADO', 'adss', 12,
+                                (select id from public.zones where code = 'CUE'));
+  perform public.guardar_trazo(
+    v_cab, '[[24.8600000,-103.7000000],[24.8600000,-103.6900000]]'::jsonb);
+
   v_nap := public.guardar_elemento(null, 'NAP-PRUEBA-01', 'nap', 'Frente a la escuela',
                                    (select id from public.zones where code = 'CUE'),
-                                   null, null, 8);
+                                   null, null, 8, 24.8600000, -103.6950000);
   reset role;
 
   select s.id into v_srv from public.customer_services s

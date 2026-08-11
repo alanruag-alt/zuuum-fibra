@@ -1,6 +1,12 @@
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { Mapa } from '@/app/(panel)/red/ftth/mapa/Mapa';
-import { puedeEditarRed, puntosDeZona, trazosDeZona, vistaDeZona } from '@/modulos/mapa/consultas';
+import {
+  margenFibra,
+  puedeEditarRed,
+  puntosDeZona,
+  trazosDeZona,
+  vistaDeZona,
+} from '@/modulos/mapa/consultas';
 import { listarCables } from '@/modulos/ftth/consultas';
 import { listarZonas } from '@/modulos/clientes/consultas';
 
@@ -30,12 +36,13 @@ export default async function PaginaMapaFTTH({ searchParams }: Props) {
 
   const zonaActual = zonas.find((z) => z.id === zona)?.id ?? zonas[0].id;
 
-  const [vista, puntos, trazos, cables, puedeEditar] = await Promise.all([
+  const [vista, puntos, trazos, cables, puedeEditar, margen] = await Promise.all([
     vistaDeZona(zonaActual),
     puntosDeZona(zonaActual),
     trazosDeZona(zonaActual),
     listarCables(),
     puedeEditarRed(),
+    margenFibra(),
   ]);
 
   const deLaZona = cables.filter((c) => c.zone_id === zonaActual || !c.zone_id);
@@ -55,6 +62,7 @@ export default async function PaginaMapaFTTH({ searchParams }: Props) {
         trazos={trazos}
         cables={deLaZona}
         puedeEditar={puedeEditar}
+        margen={margen}
       />
 
       {puedeEditar && sinTrazo.length > 0 && (
@@ -69,9 +77,9 @@ export default async function PaginaMapaFTTH({ searchParams }: Props) {
 
       {puntos.length === 0 && trazos.length === 0 && (
         <div className="mt-4 rounded-lg bg-marino-50 px-4 py-3 text-sm text-marino-500">
-          Esta zona todavía no tiene nada capturado con coordenadas. Puedes empezar aquí mismo:
-          elige <strong>Poner NAP</strong> o <strong>Poner caja</strong> y dale clic al lugar. Lo
-          que pongas aquí es lo mismo que aparece en las otras pestañas.
+          Esta zona todavía no tiene nada capturado. El orden es el mismo que en la calle: primero
+          se tiende el cable —<strong>Dibujar ruta</strong>— y encima de esa línea van las NAP y las
+          cajas. Lo que pongas aquí es lo mismo que aparece en las otras pestañas.
         </div>
       )}
     </div>

@@ -98,6 +98,7 @@ export default async function PaginaFTTH() {
                       <th className="pb-2 pr-3 font-medium">Código</th>
                       <th className="pb-2 pr-3 font-medium">Tipo</th>
                       <th className="pb-2 pr-3 font-medium">Referencia</th>
+                      <th className="pb-2 pr-3 font-medium">Sobre qué fibra</th>
                       <th className="pb-2 pr-3 font-medium">Ocupación</th>
                       <th className="pb-2 pr-3 text-right font-medium">Clientes</th>
                       <th className="pb-2 font-medium" />
@@ -116,6 +117,25 @@ export default async function PaginaFTTH() {
                             {TIPO_ELEMENTO[e.element_type] ?? e.element_type}
                           </td>
                           <td className="py-2.5 pr-3 text-marino-500">{e.name ?? '—'}</td>
+                          {/* De qué cable cuelga. Una NAP sin cable es una NAP
+                              que el sistema no sabe alimentar: se marca. */}
+                          <td className="py-2.5 pr-3 text-xs">
+                            {e.cable ? (
+                              <span className="text-marino-500">
+                                <span className="font-mono">{e.cable}</span>
+                                {e.cable_pos_m !== null && (
+                                  <span className="text-marino-300">
+                                    {' '}
+                                    · m {Math.round(Number(e.cable_pos_m))}
+                                  </span>
+                                )}
+                              </span>
+                            ) : e.element_type === 'nap' || e.element_type === 'closure' ? (
+                              <span className="text-aviso">suelta</span>
+                            ) : (
+                              <span className="text-marino-300">—</span>
+                            )}
+                          </td>
                           <td className="py-2.5 pr-3">
                             {e.capacity ? (
                               <div className="flex items-center gap-2">

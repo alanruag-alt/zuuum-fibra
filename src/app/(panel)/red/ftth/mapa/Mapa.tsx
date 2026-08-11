@@ -53,6 +53,42 @@ function metros(a: [number, number], b: [number, number]) {
 
 const COLOR_TRAZO = ['#f2820c', '#16a34a', '#2563eb', '#db2777', '#0ea5e9', '#7c3aed'];
 
+/**
+ * El punto más cercano de un trazo, y a cuántos metros quedó.
+ *
+ * Es la misma cuenta que hace la base con proyectar_en_ruta: se proyecta
+ * perpendicularmente sobre cada tramo y se toma el mejor. Se repite aquí para
+ * poder avisar ANTES de preguntar el código, no después de haberlo escrito.
+ */
+function proyectarEnTrazo(
+  ruta: [number, number][],
+  lat: number,
+  lon: number,
+): { lat: number; lon: number; metros: number } | null {
+  if (ruta.length < 2) return null;
+  const k = Math.cos((lat * Math.PI) / 180);
+  let mejor: { lat: number; lon: number; metros: number } | null = null;
+
+  for (let i = 0; i < ruta.length - 1; i++) {
+    const [y1, lo1] = ruta[i];
+    const [y2, lo2] = ruta[i + 1];
+    const x1 = lo1 * k;
+    const x2 = lo2 * k;
+    const vx = x2 - x1;
+    const vy = y2 - y1;
+    const wx = lon * k - x1;
+    const wy = lat - y1;
+    const largo = vx * vx + vy * vy;
+    const t = largo === 0 ? 0 : Math.max(0, Math.min(1, (wx * vx + wy * vy) / largo));
+    const px = x1 + t * vx;
+    const py = y1 + t * vy;
+    const p: [number, number] = [py, px / k];
+    const d = metros([lat, lon], p);
+    if (!mejor || d < mejor.metros) mejor = { lat: p[0], lon: p[1], metros: d };
+  }
+  return mejor;
+}
+
 type Modo = 'ver' | 'sitio' | 'nap' | 'caja' | 'napcaja' | 'odf' | 'poste' | 'ruta' | 'mover';
 
 const MODOS: { id: Modo; texto: string; icono: string }[] = [
@@ -71,10 +107,10 @@ const MODOS: { id: Modo; texto: string; icono: string }[] = [
 const AYUDA: Record<Modo, string> = {
   ver: 'Arrastra para moverte, rueda para acercar. Pasa el cursor por un punto para ver qué es.',
   sitio: 'Clic donde está la torre, el POP o la caseta de la OLT.',
-  caja: 'Clic donde está la caja de empalme. Va sobre la línea del cable.',
-  nap: 'Clic donde está la NAP. Va sobre la línea del cable.',
+  caja: 'Clic SOBRE la línea del cable. Ahí se abre la caja de empalme, no a media cuadra.',
+  nap: 'Clic SOBRE la línea del cable. La NAP cuelga de la fibra: si ahí no pasa, no entra.',
   napcaja:
-    'Pone la NAP y su caja de empalme en el mismo punto, que es como van en la calle: la NAP colgada de la caja donde se hace el empalme.',
+    'Sobre la línea del cable. Pone la NAP y su caja en el mismo punto, que es como van en la calle: la NAP colgada de la caja donde se hace el empalme.',
   odf: 'Clic donde está el distribuidor, normalmente dentro de la caseta.',
   poste: 'Clic en cada poste. También los puedes traer de golpe con «Importar postes».',
   ruta: 'Clic para ir marcando el recorrido del cable, poste por poste. Arrastra para moverte.',
@@ -89,9 +125,20 @@ interface Props {
   trazos: TrazoMapa[];
   cables: Cable[];
   puedeEditar: boolean;
+  /** A cuántos metros de la línea del cable se acepta una NAP o una caja. */
+  margen: number;
 }
 
-export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEditar }: Props) {
+export function Mapa({
+  zonas,
+  zonaActual,
+  vista,
+  puntos,
+  trazos,
+  cables,
+  puedeEditar,
+  margen,
+}: Props) {
   const caja = useRef<HTMLDivElement>(null);
   const [centro, setCentro] = useState({ lat: vista.lat, lon: vista.lon });
   const [zoom, setZoom] = useState(vista.zoom);
@@ -131,6 +178,13 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
   }, []);
 
   const cuantosPostes = puntos.filter((p) => p.clase === 'poste').length;
+  // En estos modos el clic solo vale encima de la fibra, así que la fibra se
+  // resalta y el cursor deja de ser una cruz cualquiera.
+  const apuntandoALaFibra =
+    modo === 'nap' ||
+    modo === 'caja' ||
+    modo === 'napcaja' ||
+    (modo === 'mover' && (moviendo?.clase === 'nap' || moviendo?.clase === 'caja'));
   const origen = proyectar(centro.lat, centro.lon, zoom);
   const izq = origen.x - tam.w / 2;
   const arriba = origen.y - tam.h / 2;
@@ -207,6 +261,44 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     return mejor ? [mejor.lat, mejor.lon] : [lat, lon];
   }
 
+  /**
+   * Una NAP o una caja SIEMPRE va sobre la fibra.
+   *
+   * En la calle la caja se abre donde pasa el cable, no a media cuadra. Aquí
+   * es igual: el clic se corre solo hasta la línea del cable más cercano, y si
+   * no hay ninguna cerca no se pregunta nada — se dice por qué.
+   *
+   * La base vuelve a revisarlo por su cuenta al guardar. Esto de aquí es para
+   * no hacerlo escribir el código de una NAP que de todos modos va a rebotar.
+   */
+  function sobreLaFibra(
+    lat: number,
+    lon: number,
+  ): { lat: number; lon: number; cable: string } | null {
+    let mejor: { lat: number; lon: number; cable: string; metros: number } | null = null;
+
+    for (const t of trazos) {
+      const p = proyectarEnTrazo(t.puntos, lat, lon);
+      if (p && (!mejor || p.metros < mejor.metros)) {
+        mejor = { ...p, cable: t.codigo };
+      }
+    }
+
+    if (!mejor || mejor.metros > margen) {
+      setRecado(
+        trazos.length === 0
+          ? 'Aquí no hay ningún cable dibujado, y las NAP y las cajas van encima de la fibra. ' +
+              'Dale a «Dibujar ruta» y marca primero el recorrido del cable.'
+          : `Ahí no pasa ninguna fibra: la más cercana queda a ${Math.round(
+              mejor?.metros ?? 0,
+            )} m y la tolerancia es de ${margen} m. Dale el clic encima de la línea del cable.`,
+      );
+      return null;
+    }
+
+    return { lat: mejor.lat, lon: mejor.lon, cable: mejor.cable };
+  }
+
   function alSoltar(e: React.MouseEvent) {
     // Seis píxeles de tolerancia: un clic normal mueve dos o tres sin querer,
     // sobre todo con la almohadilla de una laptop.
@@ -223,8 +315,13 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     }
 
     if (modo === 'mover' && moviendo) {
+      // Arrastrar una NAP fuera de la fibra sería la puerta de atrás para la
+      // misma regla: se coloca bien y luego se saca. Aquí tampoco se puede.
+      const pega = moviendo.clase === 'nap' || moviendo.clase === 'caja';
+      const f = pega ? sobreLaFibra(c.lat, c.lon) : { lat: c.lat, lon: c.lon };
+      if (!f) return;
       empezar(async () => {
-        const r = await moverPunto(moviendo.id, moviendo.clase, c.lat, c.lon);
+        const r = await moverPunto(moviendo.id, moviendo.clase, f.lat, f.lon);
         setRecado(r.mensaje);
         setMoviendo(null);
       });
@@ -242,7 +339,9 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     }
 
     if (modo === 'napcaja') {
-      const nap = window.prompt('Código de la NAP (por ejemplo NAP-CUE-012)');
+      const f = sobreLaFibra(c.lat, c.lon);
+      if (!f) return;
+      const nap = window.prompt(`Sobre ${f.cable}. Código de la NAP (por ejemplo NAP-CUE-012)`);
       if (!nap?.trim()) return;
       const caja = window.prompt('Código de la caja', nap.trim().replace(/^NAP/i, 'CAJA')) ?? '';
       if (!caja.trim()) return;
@@ -252,8 +351,8 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
           nap.trim(),
           caja.trim(),
           zonaActual,
-          c.lat,
-          c.lon,
+          f.lat,
+          f.lon,
           puertos,
         );
         setRecado(r.mensaje);
@@ -262,11 +361,16 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
     }
 
     if (['nap', 'caja', 'odf'].includes(modo)) {
+      // El ODF vive dentro de la caseta, donde el cable ya terminó: a ese no
+      // le toca la regla. A la NAP y a la caja sí.
+      const f = modo === 'odf' ? { lat: c.lat, lon: c.lon, cable: '' } : sobreLaFibra(c.lat, c.lon);
+      if (!f) return;
+
       const codigo = window.prompt(
         modo === 'nap'
-          ? 'Código de la NAP (por ejemplo NAP-CUE-012)'
+          ? `Sobre ${f.cable}. Código de la NAP (por ejemplo NAP-CUE-012)`
           : modo === 'caja'
-            ? 'Código de la caja (por ejemplo CAJA-CUE-03)'
+            ? `Sobre ${f.cable}. Código de la caja (por ejemplo CAJA-CUE-03)`
             : 'Código del ODF',
       );
       if (!codigo?.trim()) return;
@@ -277,8 +381,8 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
           modo === 'nap' ? 'nap' : modo === 'caja' ? 'closure' : 'odf',
           codigo.trim(),
           zonaActual,
-          c.lat,
-          c.lon,
+          f.lat,
+          f.lon,
           cap,
         );
         setRecado(r.mensaje);
@@ -648,6 +752,20 @@ export function Mapa({ zonas, zonaActual, vista, puntos, trazos, cables, puedeEd
             const color = t.color ?? COLOR_TRAZO[i % COLOR_TRAZO.length];
             return (
               <g key={t.id}>
+                {/* Cuando se está colocando una NAP o una caja, la fibra se
+                    engorda: es el único lugar donde se puede dar el clic, así
+                    que tiene que verse desde lejos. */}
+                {apuntandoALaFibra && (
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="16"
+                    strokeOpacity="0.22"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
                 <path d={d} fill="none" stroke="#fff" strokeWidth="6" strokeLinecap="round" />
                 <path
                   d={d}

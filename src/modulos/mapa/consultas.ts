@@ -174,6 +174,19 @@ export async function vistaDeZona(zonaId: string): Promise<VistaZona> {
 }
 
 /**
+ * A cuántos metros de la línea del cable se acepta una NAP o una caja.
+ *
+ * La base es la que manda: se pregunta para que el mapa avise con el mismo
+ * número, no con uno inventado aparte que después no cuadre con el rechazo.
+ */
+export async function margenFibra(): Promise<number> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('margen_fibra');
+  if (error) return 25;
+  return Number(data) || 25;
+}
+
+/**
  * ¿Esta persona puede tocar la red?
  *
  * Solo sirve para decidir qué botones se dibujan. Quien manipule esto desde la

@@ -264,10 +264,17 @@ begin;
   set local role authenticated;
   set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 
+  -- La NAP va sobre la fibra, así que primero hay cable y trazo.
+  create temporary table t_cab on commit drop as
+  select public.guardar_cable(null, 'CAB-ALMACEN', 'adss', 12,
+                              (select id from public.zones where code='CUE')) as id;
+  select public.guardar_trazo((select id from t_cab),
+                              '[[24.8600000,-103.7000000],[24.8600000,-103.6900000]]'::jsonb);
+
   create temporary table t_nap on commit drop as
   select public.guardar_elemento(null, 'NAP-CUE-001', 'nap', 'NAP frente a la escuela',
                                  (select id from public.zones where code='CUE'),
-                                 null, null, 8) as id;
+                                 null, null, 8, 24.8600000, -103.6950000) as id;
 
   update public.network_elements set used_ports = 7 where id = (select id from t_nap);
   select case when semaforo = 'por_llenarse' then 'PASA' else '>>> FALLA <<<' end as con_7,

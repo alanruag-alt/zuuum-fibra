@@ -59,14 +59,25 @@ begin
   set local role authenticated;
   set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 
+  -- El ODF vive dentro de la caseta: no le aplica la regla de la fibra.
   v_odf  := public.guardar_elemento(null, 'ODF-CUE-01', 'odf', 'Caseta de la OLT', v_cue);
-  v_caja := public.guardar_elemento(null, 'CAJA-01', 'closure', 'Esquina de la primaria', v_cue);
-  v_n1   := public.guardar_elemento(null, 'NAP-01', 'nap', 'Calle Hidalgo', v_cue, null, null, 8);
-  v_n2   := public.guardar_elemento(null, 'NAP-02', 'nap', 'Calle Juárez',  v_cue, null, null, 8);
 
+  -- El troncal se tiende ANTES que las cajas, porque las cajas van encima de
+  -- él. Es el mismo orden que en la calle: primero se sube el cable al poste,
+  -- después se cuelga la NAP.
   v_tr := public.guardar_cable(null, 'TR-01', 'adss', 24, v_cue,
                                'Caseta de la OLT', 'odf', v_odf,
-                               'Esquina de la primaria', 'closure', v_caja, 850);
+                               'Esquina de la primaria', null, null, 850);
+  -- Un kilómetro recto hacia el oriente, a la latitud de Cuencamé.
+  perform public.guardar_trazo(
+    v_tr, '[[24.8600000,-103.7000000],[24.8600000,-103.6900000]]'::jsonb);
+
+  v_caja := public.guardar_elemento(null, 'CAJA-01', 'closure', 'Esquina de la primaria',
+                                    v_cue, null, null, null, 24.8600000, -103.6975000);
+  v_n1   := public.guardar_elemento(null, 'NAP-01', 'nap', 'Calle Hidalgo', v_cue,
+                                    null, null, 8, 24.8600000, -103.6950000);
+  v_n2   := public.guardar_elemento(null, 'NAP-02', 'nap', 'Calle Juárez',  v_cue,
+                                    null, null, 8, 24.8600000, -103.6925000);
   v_d1 := public.guardar_cable(null, 'DI-01', 'adss', 12, v_cue,
                                'Esquina de la primaria', 'closure', v_caja,
                                'Calle Hidalgo', 'nap', v_n1, 320);

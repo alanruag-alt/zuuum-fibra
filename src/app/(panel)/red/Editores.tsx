@@ -175,6 +175,14 @@ export function EditarElemento({
             </label>
           </div>
 
+          <p className="rounded-lg bg-marino-50 px-3 py-2 text-xs text-marino-500">
+            Las <strong>NAP</strong> y las <strong>cajas de empalme</strong> van sobre la línea del
+            cable: sin coordenadas encima de una fibra dibujada, no entran. Es más fácil ponerlas
+            desde <strong>Mapa</strong>, dándole clic a la línea —ahí se pegan solas y queda escrito
+            de qué cable cuelgan y en qué metro del recorrido. Los ODF y los splitters no llevan esa
+            regla: viven dentro de la caseta.
+          </p>
+
           {elemento && (
             <label className="flex items-center gap-2">
               <input
