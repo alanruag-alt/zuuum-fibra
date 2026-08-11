@@ -17,6 +17,8 @@ export interface PuntoMapa {
   ficha: { que: string; dato: string }[];
   /** Qué se le pide borrar a la base cuando se borra desde el mapa. */
   borrarComo: 'elemento' | 'sitio' | 'poste';
+  /** Los cables que salen o llegan a este punto, dichos en corto. */
+  cables?: string[];
 }
 
 /** El recorrido de un cable. */

@@ -82,13 +82,18 @@ export async function colocarPoste(zona: string, lat: number, lon: number): Prom
   };
 }
 
-export async function guardarTrazo(cable: string, ruta: [number, number][]): Promise<Respuesta> {
+export async function guardarTrazo(
+  cable: string,
+  ruta: [number, number][],
+  modo: 'reemplazar' | 'continuar' = 'reemplazar',
+): Promise<Respuesta> {
   if (ruta.length < 2) return { ok: false, mensaje: 'Marca al menos dos puntos.' };
 
   const supabase = await crearClienteServidor();
   const { data, error } = await supabase.rpc('guardar_trazo', {
     p_cable: cable,
     p_ruta: ruta,
+    p_modo: modo,
   });
 
   if (error) return { ok: false, mensaje: error.message };
@@ -97,10 +102,41 @@ export async function guardarTrazo(cable: string, ruta: [number, number][]): Pro
   revalidatePath('/red/ftth/cables');
   revalidatePath('/red/posteria');
 
-  const m = Number(data ?? 0);
+  // El recado lo arma la base, porque es la única que sabe qué había antes.
+  return { ok: true, mensaje: String(data ?? 'Trazo guardado.') };
+}
+
+/**
+ * Un ramal nuevo desde una caja.
+ *
+ * De una caja de empalme salen varios cables; ese es el chiste de la caja. Sin
+ * esto, para dibujar el segundo ramal había que ir a «Cables», darlo de alta,
+ * volver al mapa y buscarlo —cuatro pasos— y lo natural era agarrar el cable
+ * que ya estaba seleccionado y dibujar encima. Ahí se perdía el troncal.
+ */
+export async function ramalDesde(
+  elemento: string,
+  codigo: string,
+  hilos: number,
+  tipo: string,
+): Promise<{ ok: boolean; mensaje: string; cable?: string }> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('ramal_desde', {
+    p_elemento: elemento,
+    p_codigo: codigo.toUpperCase(),
+    p_tipo: tipo || 'adss',
+    p_hilos: hilos,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  refrescar();
+  revalidatePath('/red/ftth/cables');
+
   return {
     ok: true,
-    mensaje: `Trazo guardado: ${Math.round(m)} m. La longitud del cable se actualizó con esa medida.`,
+    cable: String(data),
+    mensaje: `${codigo.toUpperCase()} arranca en esa caja. Ve marcando por dónde se va y dale a «Guardar el trazo».`,
   };
 }
 

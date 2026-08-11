@@ -40,6 +40,24 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
   const supabase = await crearClienteServidor();
   const salida: PuntoMapa[] = [];
 
+  // Los cables amarrados a cada caja, de una sola consulta. Pedirlos caja por
+  // caja serían decenas de viajes para dibujar un mapa.
+  const { data: amarres } = await supabase
+    .from('fiber_cables')
+    .select('code, from_id, to_id')
+    .eq('is_active', true);
+
+  const ramales: Record<string, { codigo: string; papel: string }[]> = {};
+  for (const c of (amarres ?? []) as unknown as Record<string, unknown>[]) {
+    const anota = (id: unknown, papel: string) => {
+      if (!id) return;
+      const k = id as string;
+      (ramales[k] = ramales[k] ?? []).push({ codigo: c.code as string, papel });
+    };
+    anota(c.from_id, 'sale');
+    anota(c.to_id, 'llega');
+  }
+
   const { data: elementos } = await supabase
     .from('v_elementos_red')
     .select(
@@ -98,6 +116,10 @@ export async function puntosDeZona(zonaId: string): Promise<PuntoMapa[]> {
         },
         ...(e.notes ? [{ que: 'Notas', dato: e.notes as string }] : []),
       ],
+      // Qué cables salen o llegan a esta caja. Es la pregunta de campo con la
+      // caja abierta enfrente, y también lo que deja ver de un vistazo que un
+      // ramal no se comió el trazo de otro.
+      cables: (ramales[e.id as string] ?? []).map((c) => `${c.papel} ${c.codigo}`),
       borrarComo: 'elemento' as const,
       lat: Number(e.latitude),
       lon: Number(e.longitude),
