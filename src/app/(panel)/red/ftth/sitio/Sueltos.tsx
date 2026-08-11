@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Boton } from '@/componentes/ui/Boton';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
-import { montarEnRack, sacarDelSitio } from '@/modulos/red/acciones_rack';
+import { asignarASitio, montarEnRack, sacarDelSitio } from '@/modulos/red/acciones_rack';
 import { eliminarDispositivo, eliminarElemento } from '@/modulos/red/acciones';
 import { tipoDe } from '@/modulos/red/rack_tipos';
 import type { Rack } from '@/modulos/red/racks';
@@ -30,11 +30,15 @@ export function Sueltos({
   sueltos,
   racks,
   sitio,
+  sitios = [],
 }: {
   sueltos: Suelto[];
   racks: Rack[];
   sitio: string;
+  /** Para poder asignarle caseta a lo que quedó huérfano. */
+  sitios?: { id: string; name: string }[];
 }) {
+  const huerfano = racks.length === 0 && sitios.length > 0 && sitio === 'sin caseta';
   const router = useRouter();
   const [recado, setRecado] = useState<Respuesta | null>(null);
   const [montando, setMontando] = useState<Suelto | null>(null);
@@ -54,8 +58,12 @@ export function Sueltos({
   return (
     <Tarjeta
       className="mt-6 border-amber-200"
-      titulo={`⚠ ${sueltos.length} ${sueltos.length === 1 ? 'cosa' : 'cosas'} en esta caseta sin gabinete`}
-      descripcion="Pertenecen al sitio pero no están montadas en ningún rack. Cuentan para todo —incluso impiden borrar la caseta— así que conviene resolverlas: súbelas al gabinete, sácalas del sitio, o bórralas."
+      titulo={`⚠ ${sueltos.length} ${sueltos.length === 1 ? 'cosa' : 'cosas'} ${huerfano ? 'sin caseta' : 'en esta caseta sin gabinete'}`}
+      descripcion={
+        huerfano
+          ? 'No pertenecen a ninguna comunidad, así que hasta ahora no aparecían en ningún lado. Ponles su caseta y ahí las vas a ver de aquí en adelante.'
+          : 'Pertenecen al sitio pero no están montadas en ningún rack. Cuentan para todo —incluso impiden borrar la caseta— así que conviene resolverlas: súbelas al gabinete, sácalas del sitio, o bórralas.'
+      }
     >
       {recado && (
         <p
@@ -89,14 +97,38 @@ export function Sueltos({
                     Subir al gabinete
                   </Boton>
                 )}
-                <Boton
-                  variante="secundario"
-                  className="px-2.5 py-1 text-xs"
-                  disabled={guardando}
-                  onClick={() => empezar(async () => aplicar(await sacarDelSitio(s.id, s.que)))}
-                >
-                  Sacar de la caseta
-                </Boton>
+                {huerfano ? (
+                  <label className="inline-flex items-center gap-1.5">
+                    <span className="text-xs text-marino-500">Ponerle caseta:</span>
+                    <select
+                      defaultValue=""
+                      disabled={guardando}
+                      onChange={(e) =>
+                        e.target.value &&
+                        empezar(async () =>
+                          aplicar(await asignarASitio(s.id, s.que, e.target.value)),
+                        )
+                      }
+                      className="rounded-lg border border-marino-200 px-2 py-1 text-xs text-marino-800 focus:border-naranja-400 focus:outline-none"
+                    >
+                      <option value="">elige una…</option>
+                      {sitios.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <Boton
+                    variante="secundario"
+                    className="px-2.5 py-1 text-xs"
+                    disabled={guardando}
+                    onClick={() => empezar(async () => aplicar(await sacarDelSitio(s.id, s.que)))}
+                  >
+                    Sacar de la caseta
+                  </Boton>
+                )}
                 <Boton
                   variante="texto"
                   className="px-2.5 py-1 text-xs"
@@ -146,7 +178,7 @@ export function Sueltos({
         ))}
       </div>
 
-      {racks.length === 0 && (
+      {racks.length === 0 && !huerfano && (
         <p className="mt-3 rounded-lg bg-marino-50 px-3 py-2 text-xs text-marino-500">
           Esta caseta todavía no tiene gabinete. Dale de alta uno arriba y entonces vas a poder
           subir estas cosas a su unidad.

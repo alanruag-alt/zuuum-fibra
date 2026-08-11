@@ -117,6 +117,22 @@ export async function listarPuertosPon(): Promise<PuertoPon[]> {
   return (data ?? []) as unknown as PuertoPon[];
 }
 
+/** Los puertos del ODF de una caseta, esté montado el ODF o no. */
+export async function puertosOdfDeLaCaseta(sitio: string | null): Promise<PuertoOdf[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('puertos_odf_de_la_caseta', { p_sitio: sitio });
+  if (error) return [];
+  return (data ?? []) as unknown as PuertoOdf[];
+}
+
+/** Los puertos PON de una caseta, esté montada la OLT o no. */
+export async function puertosPonDeLaCaseta(sitio: string | null): Promise<PuertoPon[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('puertos_pon_de_la_caseta', { p_sitio: sitio });
+  if (error) return [];
+  return (data ?? []) as unknown as PuertoPon[];
+}
+
 export async function listarPuertosOdf(): Promise<PuertoOdf[]> {
   const supabase = await crearClienteServidor();
   const { data, error } = await supabase

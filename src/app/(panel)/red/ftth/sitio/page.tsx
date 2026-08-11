@@ -6,16 +6,18 @@ import { Sueltos } from '@/app/(panel)/red/ftth/sitio/Sueltos';
 import Rack from '@/app/(panel)/red/ftth/sitio/Rack';
 import Patcheo from '@/app/(panel)/red/ftth/sitio/Patcheo';
 import {
+  equiposDeLaCaseta,
   listarEquiposRack,
   listarRacks,
   listarSitiosConRack,
+  sinCaseta,
   sueltosDelSitio,
 } from '@/modulos/red/racks';
 import {
   hilosSinOrigen,
-  listarPuertosOdf,
-  listarPuertosPon,
   listarTarjetas,
+  puertosOdfDeLaCaseta,
+  puertosPonDeLaCaseta,
 } from '@/modulos/red/olt';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import { numero } from '@/lib/formato';
@@ -38,40 +40,44 @@ export default async function PaginaSitio({
 }) {
   const { sitio: pedido } = await searchParams;
 
-  const [sitios, racks, equipos, tarjetas, pones, puertosOdf, hilos, zonas] = await Promise.all([
+  const [sitios, racks, equiposRack, tarjetas, hilos, zonas, huerfanos] = await Promise.all([
     listarSitiosConRack(),
     listarRacks(),
     listarEquiposRack(),
     listarTarjetas(),
-    listarPuertosPon(),
-    listarPuertosOdf(),
     hilosSinOrigen(),
     listarZonas(),
+    sinCaseta(),
   ]);
 
-  // Si no se pide ninguna, se abre la que ya tiene gabinete: es la que se está
-  // trabajando. Una lista de doce comunidades vacías no le sirve a nadie.
+  // «Sin caseta» es una caseta más. Lo que no pertenece a ningún sitio existe
+  // y estorba igual; si no tiene dónde enseñarse, no hay forma de componerlo.
+  const HUERFANOS = 'sin-caseta';
+  const hayHuerfanos = huerfanos.length > 0;
+
   const elegido =
+    (pedido === HUERFANOS && hayHuerfanos ? HUERFANOS : null) ??
     (pedido && sitios.some((s) => s.id === pedido) ? pedido : null) ??
     sitios.find((s) => s.racks > 0)?.id ??
     sitios[0]?.id ??
-    null;
+    (hayHuerfanos ? HUERFANOS : null);
 
-  const sitio = sitios.find((s) => s.id === elegido) ?? null;
-  const susRacks = racks.filter((r) => r.site_id === elegido);
+  const orfandad = elegido === HUERFANOS;
+  const sitio = orfandad ? null : (sitios.find((s) => s.id === elegido) ?? null);
+  const idSitio = orfandad ? null : (elegido ?? null);
+
+  const susRacks = orfandad ? [] : racks.filter((r) => r.site_id === elegido);
   const idsRack = new Set(susRacks.map((r) => r.id));
-  const susEquipos = equipos.filter((e) => idsRack.has(e.rack_id));
-  const susOdf = new Set(susEquipos.filter((e) => e.element_id).map((e) => e.element_id));
-  const susOlt = new Set(susEquipos.filter((e) => e.device_id).map((e) => e.device_id));
+  const susItems = equiposRack.filter((e) => idsRack.has(e.rack_id));
 
-  const susTarjetas = tarjetas.filter((t) => susOlt.has(t.device_id));
-  const idsTarjeta = new Set(susTarjetas.map((t) => t.id));
-  const susPon = pones.filter((p) => idsTarjeta.has(p.card_id));
-  const susPuertos = puertosOdf.filter((p) => susOdf.has(p.odf_id));
-
-  // Lo que pertenece a la caseta pero no está montado en ningún gabinete. Se
-  // consulta aparte porque hasta ahora era justo lo que quedaba invisible.
-  const sueltos = elegido ? await sueltosDelSitio(elegido) : [];
+  // Se sacan de donde de verdad viven —los equipos y los elementos— y el rack
+  // se pega al lado nada más para decir en qué U están, si es que están.
+  const [enLaCaseta, susPon, susPuertos, sueltos] = await Promise.all([
+    equiposDeLaCaseta(idSitio),
+    puertosPonDeLaCaseta(idSitio),
+    puertosOdfDeLaCaseta(idSitio),
+    orfandad ? Promise.resolve([]) : sueltosDelSitio(elegido!),
+  ]);
 
   return (
     <div>
@@ -91,9 +97,30 @@ export default async function PaginaSitio({
         }))}
         elegido={elegido}
         zonas={zonas.map((z) => ({ id: z.id, name: z.name }))}
+        huerfanos={huerfanos.length}
       />
 
-      {!sitio ? (
+      {orfandad ? (
+        <>
+          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-aviso">
+            Esto no pertenece a ninguna comunidad. Existe y cuenta para todas las validaciones
+            —incluso impide borrar cosas— así que conviene componerlo: asígnale su caseta, o
+            bórralo.
+          </p>
+
+          <Sueltos sueltos={huerfanos} racks={[]} sitio="sin caseta" sitios={sitios} />
+
+          <Montado
+            equipos={enLaCaseta}
+            tarjetas={tarjetas}
+            pones={susPon}
+            puertosOdf={susPuertos}
+            hilos={hilos}
+          />
+
+          <Patcheo pones={susPon} puertos={susPuertos} />
+        </>
+      ) : !sitio ? (
         <Tarjeta>
           <div className="py-12 text-center">
             <p className="text-3xl">🏘️</p>
@@ -135,13 +162,13 @@ export default async function PaginaSitio({
             />
           </div>
 
-          <Rack racks={susRacks} equipos={susEquipos} sitio={{ id: sitio.id, name: sitio.name }} />
+          <Rack racks={susRacks} equipos={susItems} sitio={{ id: sitio.id, name: sitio.name }} />
 
-          <Sueltos sueltos={sueltos} racks={susRacks} sitio={sitio.name} />
+          <Sueltos sueltos={sueltos} racks={susRacks} sitio={sitio.name} sitios={sitios} />
 
           <Montado
-            equipos={susEquipos}
-            tarjetas={susTarjetas}
+            equipos={enLaCaseta}
+            tarjetas={tarjetas}
             pones={susPon}
             puertosOdf={susPuertos}
             hilos={hilos}

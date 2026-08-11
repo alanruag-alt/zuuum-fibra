@@ -1,8 +1,13 @@
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
-import { NuevaTarjeta, NuevasBandejas, Patchear } from '@/app/(panel)/red/ftth/sitio/Editores';
+import {
+  NuevaTarjeta,
+  NuevasBandejas,
+  Patchear,
+  VaciarPuerto,
+} from '@/app/(panel)/red/ftth/sitio/Editores';
 import { estadoDe } from '@/modulos/red/rack_tipos';
-import type { EquipoRack } from '@/modulos/red/racks';
+import type { EnLaCaseta } from '@/modulos/red/racks';
 import type { PuertoOdf, PuertoPon, Tarjeta as TarjetaOlt } from '@/modulos/red/olt';
 
 /**
@@ -16,6 +21,20 @@ import type { PuertoOdf, PuertoPon, Tarjeta as TarjetaOlt } from '@/modulos/red/
  * Las tarjetas cuelgan de la OLT y no del rack, que es como es de verdad: si
  * la OLT se cambia de gabinete, sus tarjetas se van con ella.
  */
+/**
+ * Dónde está, cuando está en algún lado.
+ *
+ * Un equipo puede pertenecer a la caseta sin estar montado en un gabinete.
+ * Antes eso lo hacía desaparecer de la pantalla; ahora se dice tal cual, que
+ * además es un pendiente que conviene ver.
+ */
+function donde(o: EnLaCaseta): string {
+  if (o.posicion === null) return '⚠ sin gabinete';
+  return `${o.rack ? `${o.rack} · ` : ''}U${o.posicion}${
+    o.hasta && o.hasta > o.posicion ? `–U${o.hasta}` : ''
+  }`;
+}
+
 export function Montado({
   equipos,
   tarjetas,
@@ -23,35 +42,35 @@ export function Montado({
   puertosOdf,
   hilos,
 }: {
-  equipos: EquipoRack[];
+  equipos: EnLaCaseta[];
   tarjetas: TarjetaOlt[];
   pones: PuertoPon[];
   puertosOdf: PuertoOdf[];
   hilos: { id: string; etiqueta: string }[];
 }) {
-  const olts = equipos.filter((e) => e.kind === 'olt' && e.device_id);
-  const odfs = equipos.filter((e) => e.kind === 'odf' && e.element_id);
+  const olts = equipos.filter((e) => e.kind === 'olt');
+  const odfs = equipos.filter((e) => e.kind === 'odf');
 
   if (olts.length === 0 && odfs.length === 0) return null;
 
   return (
     <div className="mt-6 space-y-6">
       {olts.map((o) => {
-        const suyas = tarjetas.filter((t) => t.device_id === o.device_id);
-        const est = estadoDe(o.status);
+        const suyas = tarjetas.filter((t) => t.device_id === o.ref_id);
+        const est = estadoDe(o.estado);
         return (
           <Tarjeta
-            key={o.id}
+            key={o.ref_id}
             titulo={`🛜 ${o.label}`}
             descripcion={[
-              `U${o.position}${o.height > 1 ? `–U${o.hasta}` : ''}`,
+              donde(o),
               [o.vendor, o.model].filter(Boolean).join(' ') || null,
               o.mgmt_ip,
               `${o.pon_patcheados} de ${o.puertos_pon} PON patcheados`,
             ]
               .filter(Boolean)
               .join(' · ')}
-            acciones={<NuevaTarjeta olts={[{ id: o.device_id!, name: o.label }]} />}
+            acciones={<NuevaTarjeta olts={[{ id: o.ref_id, name: o.label }]} />}
           >
             <p className={`mb-3 inline-flex items-center gap-1.5 text-xs font-medium ${est.texto}`}>
               <span className={`h-2.5 w-2.5 rounded-full ${est.punto}`} aria-hidden="true" />
@@ -118,18 +137,16 @@ export function Montado({
       })}
 
       {odfs.map((o) => {
-        const suyos = puertosOdf.filter((p) => p.odf_id === o.element_id);
+        const suyos = puertosOdf.filter((p) => p.odf_id === o.ref_id);
         const bandejas = [...new Set(suyos.map((p) => p.tray_number))].sort((a, b) => a - b);
         return (
           <Tarjeta
-            key={o.id}
+            key={o.ref_id}
             titulo={`🧷 ${o.label}`}
-            descripcion={[
-              `U${o.position}${o.height > 1 ? `–U${o.hasta}` : ''}`,
-              `${suyos.length} puertos`,
-              `${o.odf_libres} libres`,
-            ].join(' · ')}
-            acciones={<NuevasBandejas odfs={[{ id: o.element_id!, code: o.label }]} />}
+            descripcion={[donde(o), `${suyos.length} puertos`, `${o.odf_libres} libres`].join(
+              ' · ',
+            )}
+            acciones={<NuevasBandejas odfs={[{ id: o.ref_id, code: o.label }]} />}
           >
             {suyos.length === 0 ? (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-aviso">
@@ -179,7 +196,8 @@ export function Montado({
                               <span className="text-xs text-marino-300">sin cable</span>
                             )}
                             {p.connector && <Insignia tono="neutro">{p.connector}</Insignia>}
-                            <span className="ml-auto">
+                            <span className="ml-auto flex items-center gap-1">
+                              {p.status === 'ocupado' && <VaciarPuerto puerto={p} />}
                               <Patchear puerto={p} pones={pones} hilos={hilos} />
                             </span>
                           </div>

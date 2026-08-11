@@ -243,3 +243,37 @@ export async function sacarDelSitio(id: string, que: 'equipo' | 'elemento'): Pro
   refrescar();
   return { ok: true, mensaje: String(data ?? 'Listo.') };
 }
+
+/**
+ * Dejar libre un puerto del ODF de un solo movimiento.
+ *
+ * Un puerto ocupado puede traer el latiguillo de la OLT por un lado y el hilo
+ * del cable por el otro. Quien solo quiere dejarlo libre no tiene por qué
+ * saber que eran dos cosas distintas.
+ */
+export async function vaciarPuertoOdf(id: string): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('vaciar_puerto_odf', { p_id: id });
+
+  if (error) return { ok: false, mensaje: error.message };
+  refrescar();
+  return { ok: true, mensaje: String(data ?? 'Puerto libre.') };
+}
+
+/** Ponerle caseta a lo que quedó huérfano. */
+export async function asignarASitio(
+  id: string,
+  que: 'equipo' | 'elemento',
+  sitio: string,
+): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('asignar_a_sitio', {
+    p_id: id,
+    p_que: que,
+    p_sitio: sitio,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+  refrescar();
+  return { ok: true, mensaje: String(data ?? 'Listo.') };
+}

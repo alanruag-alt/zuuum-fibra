@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Boton } from '@/componentes/ui/Boton';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import {
@@ -11,6 +12,7 @@ import {
   patchear,
   soltarCable,
 } from '@/modulos/red/acciones_olt';
+import { vaciarPuertoOdf } from '@/modulos/red/acciones_rack';
 import type { Respuesta } from '@/modulos/admin/acciones';
 import type { PuertoOdf, PuertoPon } from '@/modulos/red/olt';
 
@@ -319,5 +321,74 @@ export function Patchear({
         cerrar
       </Boton>
     </div>
+  );
+}
+
+/**
+ * Dejar libre un puerto del ODF.
+ *
+ * Este botón faltaba, y su ausencia dejó a ODFPEDRI1 imposible de borrar: la
+ * base decía «tiene 1 puertos ocupados» y no había ninguna pantalla donde
+ * desconectarlo. Quita el latiguillo de la OLT y el hilo del cable de un solo
+ * movimiento, porque quien nada más quiere el puerto libre no tiene por qué
+ * saber que eran dos cosas distintas.
+ */
+export function VaciarPuerto({ puerto }: { puerto: PuertoOdf }) {
+  const [preguntando, setPreguntando] = useState(false);
+  const [estado, setEstado] = useState<Respuesta | null>(null);
+  const [guardando, empezar] = useTransition();
+  const router = useRouter();
+
+  const trae = [
+    puerto.pon ? `el latiguillo del PON ${puerto.pon}` : null,
+    puerto.cable ? `el hilo ${puerto.strand_number} de ${puerto.cable}` : null,
+  ].filter(Boolean);
+
+  if (!preguntando) {
+    return (
+      <>
+        <Boton variante="texto" className="px-2 py-1 text-xs" onClick={() => setPreguntando(true)}>
+          vaciar
+        </Boton>
+        {estado && (
+          <span className={`text-xs ${estado.ok ? 'text-exito' : 'text-falla'}`}>
+            {estado.mensaje}
+          </span>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-2 py-1 text-xs text-aviso">
+      <span>
+        ¿Dejar libre la bandeja {puerto.tray_number} puerto {puerto.port_number}? Se quita{' '}
+        {trae.join(' y ')}.
+      </span>
+      <Boton
+        variante="oscuro"
+        className="px-2.5 py-1 text-xs"
+        cargando={guardando}
+        onClick={() =>
+          empezar(async () => {
+            const r = await vaciarPuertoOdf(puerto.id);
+            setEstado(r);
+            if (r.ok) {
+              setPreguntando(false);
+              router.refresh();
+            }
+          })
+        }
+      >
+        Sí, vaciarlo
+      </Boton>
+      <Boton
+        variante="secundario"
+        className="px-2.5 py-1 text-xs"
+        onClick={() => setPreguntando(false)}
+      >
+        No
+      </Boton>
+    </span>
   );
 }

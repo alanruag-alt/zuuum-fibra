@@ -122,3 +122,48 @@ export async function sueltosDelSitio(sitio: string): Promise<Suelto[]> {
   if (error) return [];
   return (data ?? []) as unknown as Suelto[];
 }
+
+export interface EnLaCaseta {
+  item_id: string | null;
+  ref_id: string;
+  que: 'equipo' | 'elemento';
+  kind: string;
+  label: string;
+  vendor: string | null;
+  model: string | null;
+  serial: string | null;
+  mgmt_ip: string | null;
+  rack: string | null;
+  /** Nulo cuando el equipo pertenece a la caseta pero no está montado. */
+  posicion: number | null;
+  hasta: number | null;
+  estado: string;
+  tarjetas: number;
+  puertos_pon: number;
+  pon_patcheados: number;
+  puertos_odf: number;
+  odf_libres: number;
+}
+
+/**
+ * Las OLT y los ODF de una caseta, montados o no.
+ *
+ * Con `sitio` en nulo devuelve los huérfanos: los que no pertenecen a ninguna
+ * caseta. Antes esta pantalla los sacaba de `rack_items` —o sea, solo lo
+ * montado— y todo lo demás quedaba invisible aunque siguiera contando para
+ * las validaciones.
+ */
+export async function equiposDeLaCaseta(sitio: string | null): Promise<EnLaCaseta[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('equipos_de_la_caseta', { p_sitio: sitio });
+  if (error) return [];
+  return (data ?? []) as unknown as EnLaCaseta[];
+}
+
+/** Lo que existe pero no pertenece a ninguna caseta. */
+export async function sinCaseta(): Promise<Suelto[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('sin_caseta');
+  if (error) return [];
+  return (data ?? []) as unknown as Suelto[];
+}

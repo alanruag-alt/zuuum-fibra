@@ -339,8 +339,10 @@ begin
     raise notice 'FALLA · borro el ODF con puertos ocupados';
   exception when others then
     get stacked diagnostics v_msg = message_text;
-    if v_msg like '%puertos ocupados%' then
-      raise notice 'PASA · no borra un ODF con puertos ocupados';
+    -- Desde la 043 el recado dice CUÁL puerto y qué trae, en vez de solo
+    -- «tiene N puertos ocupados». Se exige eso: de eso se trataba el arreglo.
+    if v_msg like '%bandeja%puerto%' and v_msg like '%OLT-PRUEBA%' then
+      raise notice 'PASA · no borra un ODF ocupado, y dice cual puerto y que trae';
     else
       v_falla := v_falla + 1;
       raise notice 'FALLA · otro error: %', v_msg;

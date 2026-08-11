@@ -30,10 +30,13 @@ export function Elegir({
   sitios,
   elegido,
   zonas,
+  huerfanos = 0,
 }: {
   sitios: OpcionSitio[];
   elegido: string | null;
   zonas: { id: string; name: string }[];
+  /** Cuántas cosas no pertenecen a ninguna caseta. */
+  huerfanos?: number;
 }) {
   const router = useRouter();
   const [nuevo, setNuevo] = useState(false);
@@ -47,7 +50,9 @@ export function Elegir({
           onChange={(e) => router.push(`/red/ftth/sitio?sitio=${e.target.value}`)}
           className={`${CAMPO} min-w-72`}
         >
-          {sitios.length === 0 && <option value="">— todavía no hay ninguna —</option>}
+          {sitios.length === 0 && huerfanos === 0 && (
+            <option value="">— todavía no hay ninguna —</option>
+          )}
           {sitios.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -55,6 +60,11 @@ export function Elegir({
               OLT, {s.odfs} ODF
             </option>
           ))}
+          {huerfanos > 0 && (
+            <option value="sin-caseta">
+              ⚠ Sin caseta asignada — {huerfanos} {huerfanos === 1 ? 'cosa' : 'cosas'}
+            </option>
+          )}
         </select>
       </label>
 
