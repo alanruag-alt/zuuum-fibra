@@ -4,7 +4,9 @@ import {
   NuevaTarjeta,
   NuevasBandejas,
   Patchear,
+  QuitarTarjeta,
   VaciarPuerto,
+  YaNoSeUsa,
 } from '@/app/(panel)/red/ftth/sitio/Editores';
 import { estadoDe } from '@/modulos/red/rack_tipos';
 import type { EnLaCaseta } from '@/modulos/red/racks';
@@ -70,7 +72,17 @@ export function Montado({
             ]
               .filter(Boolean)
               .join(' · ')}
-            acciones={<NuevaTarjeta olts={[{ id: o.ref_id, name: o.label }]} />}
+            acciones={
+              <div className="flex flex-wrap items-center gap-2">
+                <YaNoSeUsa
+                  id={o.ref_id}
+                  que="equipo"
+                  nombre={o.label}
+                  activo={o.estado !== 'fuera_de_servicio'}
+                />
+                <NuevaTarjeta olts={[{ id: o.ref_id, name: o.label }]} />
+              </div>
+            }
           >
             <p className={`mb-3 inline-flex items-center gap-1.5 text-xs font-medium ${est.texto}`}>
               <span className={`h-2.5 w-2.5 rounded-full ${est.punto}`} aria-hidden="true" />
@@ -92,14 +104,17 @@ export function Montado({
                   const puertos = pones.filter((p) => p.card_id === t.id);
                   return (
                     <div key={t.id}>
-                      <p className="mb-2 text-sm font-medium text-marino-700">
-                        Tarjeta · slot {t.slot_number}
-                        {t.card_type && (
-                          <span className="ml-2 font-normal text-marino-400">{t.card_type}</span>
-                        )}
-                        <span className="ml-2 text-xs font-normal text-marino-400">
-                          {t.patcheados} de {t.puertos} patcheados
+                      <p className="mb-2 flex flex-wrap items-center gap-2 text-sm font-medium text-marino-700">
+                        <span>
+                          Tarjeta · slot {t.slot_number}
+                          {t.card_type && (
+                            <span className="ml-2 font-normal text-marino-400">{t.card_type}</span>
+                          )}
+                          <span className="ml-2 text-xs font-normal text-marino-400">
+                            {t.patcheados} de {t.puertos} patcheados
+                          </span>
                         </span>
+                        <QuitarTarjeta id={t.id} slot={t.slot_number} />
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {puertos.map((p) => (
@@ -146,7 +161,17 @@ export function Montado({
             descripcion={[donde(o), `${suyos.length} puertos`, `${o.odf_libres} libres`].join(
               ' · ',
             )}
-            acciones={<NuevasBandejas odfs={[{ id: o.ref_id, code: o.label }]} />}
+            acciones={
+              <div className="flex flex-wrap items-center gap-2">
+                <YaNoSeUsa
+                  id={o.ref_id}
+                  que="elemento"
+                  nombre={o.label}
+                  activo={o.estado !== 'fuera_de_servicio'}
+                />
+                <NuevasBandejas odfs={[{ id: o.ref_id, code: o.label }]} />
+              </div>
+            }
           >
             {suyos.length === 0 ? (
               <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-aviso">

@@ -12,7 +12,7 @@ import {
   patchear,
   soltarCable,
 } from '@/modulos/red/acciones_olt';
-import { vaciarPuertoOdf } from '@/modulos/red/acciones_rack';
+import { eliminarTarjeta, vaciarPuertoOdf, yaNoSeUsa } from '@/modulos/red/acciones_rack';
 import type { Respuesta } from '@/modulos/admin/acciones';
 import type { PuertoOdf, PuertoPon } from '@/modulos/red/olt';
 
@@ -390,5 +390,108 @@ export function VaciarPuerto({ puerto }: { puerto: PuertoOdf }) {
         No
       </Boton>
     </span>
+  );
+}
+
+/**
+ * Quitar una tarjeta de la OLT.
+ *
+ * Esta puerta no existía: una tarjeta se podía abrir pero nunca quitar, así
+ * que una OLT capturada por error se quedaba para siempre. La base se niega
+ * si alguno de sus puertos PON sigue patcheado, y los nombra.
+ */
+export function QuitarTarjeta({ id, slot }: { id: string; slot: number }) {
+  const [preguntando, setPreguntando] = useState(false);
+  const [estado, setEstado] = useState<Respuesta | null>(null);
+  const [guardando, empezar] = useTransition();
+  const router = useRouter();
+
+  if (!preguntando) {
+    return (
+      <>
+        <Boton variante="texto" className="px-2 py-1 text-xs" onClick={() => setPreguntando(true)}>
+          quitar
+        </Boton>
+        {estado && !estado.ok && <span className="ml-2 text-xs text-falla">{estado.mensaje}</span>}
+      </>
+    );
+  }
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-2 py-1 text-xs text-aviso">
+      <span>¿Quitar la tarjeta del slot {slot} con todos sus puertos PON?</span>
+      <Boton
+        variante="oscuro"
+        className="px-2.5 py-1 text-xs"
+        cargando={guardando}
+        onClick={() =>
+          empezar(async () => {
+            const r = await eliminarTarjeta(id);
+            setEstado(r);
+            if (r.ok) {
+              setPreguntando(false);
+              router.refresh();
+            }
+          })
+        }
+      >
+        Sí, quitarla
+      </Boton>
+      <Boton
+        variante="secundario"
+        className="px-2.5 py-1 text-xs"
+        onClick={() => setPreguntando(false)}
+      >
+        No
+      </Boton>
+    </span>
+  );
+}
+
+/**
+ * «Ya no se usa».
+ *
+ * El botón que el recado de la base llevaba prometiendo y que nunca existió.
+ * No borra: da de baja. La diferencia importa cuando de ese equipo colgaron
+ * clientes que uno todavía va a querer rastrear el año que entra.
+ */
+export function YaNoSeUsa({
+  id,
+  que,
+  nombre,
+  activo,
+}: {
+  id: string;
+  que: 'equipo' | 'elemento';
+  nombre: string;
+  activo: boolean;
+}) {
+  const [estado, setEstado] = useState<Respuesta | null>(null);
+  const [guardando, empezar] = useTransition();
+  const router = useRouter();
+
+  return (
+    <>
+      <Boton
+        variante="secundario"
+        className="px-2.5 py-1 text-xs"
+        cargando={guardando}
+        title={
+          activo
+            ? `${nombre} deja de salir en las listas del día a día, pero no se borra: su historia se conserva.`
+            : `${nombre} vuelve a estar en servicio.`
+        }
+        onClick={() =>
+          empezar(async () => {
+            const r = await yaNoSeUsa(id, que, !activo);
+            setEstado(r);
+            if (r.ok) router.refresh();
+          })
+        }
+      >
+        {activo ? 'Ya no se usa' : 'Volver a usarlo'}
+      </Boton>
+      {estado && !estado.ok && <span className="text-xs text-falla">{estado.mensaje}</span>}
+    </>
   );
 }

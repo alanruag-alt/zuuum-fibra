@@ -277,3 +277,37 @@ export async function asignarASitio(
   refrescar();
   return { ok: true, mensaje: String(data ?? 'Listo.') };
 }
+
+/**
+ * Marcar que ya no se usa, sin borrarlo.
+ *
+ * La OLT que se cambió el año pasado tiene que seguir existiendo para que la
+ * historia de los clientes que colgaban de ella siga teniendo sentido. Lo que
+ * cambia es que deja de aparecer en las listas de todos los días.
+ */
+export async function yaNoSeUsa(
+  id: string,
+  que: 'equipo' | 'elemento',
+  activo = false,
+): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('ya_no_se_usa', {
+    p_id: id,
+    p_que: que,
+    p_activo: activo,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+  refrescar();
+  return { ok: true, mensaje: String(data ?? 'Listo.') };
+}
+
+/** Quitarle una tarjeta a la OLT, con sus puertos PON. */
+export async function eliminarTarjeta(id: string): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('eliminar_tarjeta', { p_id: id });
+
+  if (error) return { ok: false, mensaje: error.message };
+  refrescar();
+  return { ok: true, mensaje: String(data ?? 'Tarjeta quitada.') };
+}

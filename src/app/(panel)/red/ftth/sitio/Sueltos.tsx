@@ -7,6 +7,7 @@ import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { asignarASitio, montarEnRack, sacarDelSitio } from '@/modulos/red/acciones_rack';
 import { eliminarDispositivo, eliminarElemento } from '@/modulos/red/acciones';
+import { YaNoSeUsa } from '@/app/(panel)/red/ftth/sitio/Editores';
 import { tipoDe } from '@/modulos/red/rack_tipos';
 import type { Rack } from '@/modulos/red/racks';
 import type { Suelto } from '@/modulos/red/racks';
@@ -129,6 +130,7 @@ export function Sueltos({
                     Sacar de la caseta
                   </Boton>
                 )}
+                <YaNoSeUsa id={s.id} que={s.que} nombre={s.nombre} activo={s.activo} />
                 <Boton
                   variante="texto"
                   className="px-2.5 py-1 text-xs"
@@ -143,7 +145,9 @@ export function Sueltos({
               <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-falla">
                 <p>
                   ¿Borrar <strong>{s.nombre}</strong> de todo el sistema? Si trae tarjetas, puertos
-                  o clientes colgando, la base se va a negar y te va a decir qué falta primero.
+                  o clientes colgando, la base se va a negar y te va a decir qué falta primero. Si
+                  el equipo sí existió y nada más se retiró, es mejor «Ya no se usa»: se conserva la
+                  historia de los clientes que colgaban de ahí.
                 </p>
                 <div className="mt-2 flex gap-2">
                   <Boton
