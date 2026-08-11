@@ -321,3 +321,121 @@ export async function perfilDelCable(
   if (error) return null;
   return (Array.isArray(data) ? data[0] : data) ?? null;
 }
+
+/* ─────────────────────────────────────────── derivar sobre un cable existente
+ * En la calle, un ramal no sale del aire: sale de un nodo puesto sobre el
+ * cable del que se deriva. Estas tres funciones son ese gesto.
+ */
+
+export interface HiloDeCable {
+  id: string;
+  numero: number;
+  color: string;
+  tubo: number;
+  estado: string;
+  ocupado: string | null;
+  cortado: string | null;
+}
+
+export async function hilosDeCable(cable: string): Promise<HiloDeCable[]> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('hilos_de_cable', { p_cable: cable });
+  if (error) return [];
+  return (data ?? []) as unknown as HiloDeCable[];
+}
+
+export async function insertarCajaEnCable(
+  cable: string,
+  lat: number,
+  lon: number,
+  codigo: string,
+  nombre: string | null,
+  hilos: string[],
+  esNap: boolean,
+  puertos: number,
+): Promise<{ ok: boolean; mensaje: string; caja?: string }> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('insertar_caja_en_cable', {
+    p_cable: cable,
+    p_lat: lat,
+    p_lon: lon,
+    p_codigo: codigo,
+    p_nombre: nombre,
+    p_hilos: hilos.length ? hilos : null,
+    p_nap: esNap,
+    p_puertos: puertos,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  const r = (Array.isArray(data) ? data[0] : data) as
+    | { caja_id: string; cortados: number; en_metro: number }
+    | undefined;
+  if (!r) return { ok: false, mensaje: 'No se pudo insertar la caja.' };
+
+  refrescar();
+  revalidatePath('/red/ftth/cables');
+
+  return {
+    ok: true,
+    caja: r.caja_id,
+    mensaje:
+      `${codigo.toUpperCase()} quedó sobre la línea, en el metro ${Math.round(r.en_metro)} del cable` +
+      (r.cortados > 0
+        ? ` · ${r.cortados} ${r.cortados === 1 ? 'hilo cortado ahí' : 'hilos cortados ahí'}.`
+        : '. No se cortó ningún hilo: todos siguen de largo.'),
+  };
+}
+
+/**
+ * Terminar la ruta.
+ *
+ * La pregunta al cerrar es una sola: ¿cable nuevo, o la trayectoria de uno que
+ * ya existe? Y en los dos casos el cable queda enganchado a las cajas de sus
+ * extremos, que es lo que después deja abrirlas y empalmar adentro.
+ */
+export async function cerrarRuta(
+  ruta: [number, number][],
+  opciones: {
+    cable?: string | null;
+    codigo?: string;
+    hilos?: number;
+    tipo?: string;
+    zona?: string;
+    deriva?: string | null;
+  },
+): Promise<Respuesta> {
+  if (ruta.length < 2) return { ok: false, mensaje: 'Marca al menos dos puntos.' };
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('cerrar_ruta', {
+    p_ruta: ruta,
+    p_cable: opciones.cable ?? null,
+    p_codigo: opciones.codigo ?? null,
+    p_hilos: opciones.hilos ?? 12,
+    p_tipo: opciones.tipo ?? 'adss',
+    p_zona: opciones.zona ?? null,
+    p_deriva: opciones.deriva ?? null,
+    p_margen: 35,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  const r = (Array.isArray(data) ? data[0] : data) as
+    | { codigo: string; metros: number; enganchadas: string | null }
+    | undefined;
+  if (!r) return { ok: false, mensaje: 'No se pudo guardar la ruta.' };
+
+  refrescar();
+  revalidatePath('/red/ftth/cables');
+  revalidatePath('/red/posteria');
+
+  return {
+    ok: true,
+    mensaje:
+      `${r.codigo}: ${Math.round(r.metros)} m guardados.` +
+      (r.enganchadas
+        ? ` Quedó conectado al diagrama de ${r.enganchadas}, así que ya puedes abrir esa caja y empalmar.`
+        : ' No quedó ninguna caja en sus extremos: si va a empalmar en alguna, ponla sobre la línea.'),
+  };
+}

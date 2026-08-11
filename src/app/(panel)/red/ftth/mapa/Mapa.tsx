@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Boton } from '@/componentes/ui/Boton';
 import { Borrar } from '@/componentes/ui/Borrar';
 import { ImportarKmz } from '@/app/(panel)/red/posteria/Editor';
+import { Derivar, type Derivacion } from '@/app/(panel)/red/ftth/mapa/Derivar';
+import { Terminar } from '@/app/(panel)/red/ftth/mapa/Terminar';
 import {
   type Corte,
   colocarElemento,
@@ -12,10 +14,8 @@ import {
   colocarPoste,
   colocarSitio,
   diagnosticarCorte,
-  guardarTrazo,
   guardarVistaZona,
   moverPunto,
-  ramalDesde,
 } from '@/modulos/mapa/acciones';
 import type { PuntoMapa, TrazoMapa } from '@/modulos/mapa/tipos';
 import type { Cable } from '@/modulos/ftth/tipos';
@@ -113,7 +113,7 @@ const MODOS: { id: Modo; texto: string; icono: string }[] = [
   { id: 'odf', texto: 'Colocar ODF', icono: '🗄️' },
   { id: 'poste', texto: 'Colocar poste', icono: '📍' },
   { id: 'ruta', texto: 'Dibujar ruta', icono: '✏️' },
-  { id: 'ramal', texto: 'Ramal desde caja', icono: '🌿' },
+  { id: 'ramal', texto: 'Ramal desde nodo', icono: '🌿' },
   { id: 'mover', texto: 'Mover punto', icono: '✋' },
 ];
 
@@ -127,9 +127,9 @@ const AYUDA: Record<Modo, string> = {
     'Sobre la línea del cable. Pone la NAP y su caja en el mismo punto, que es como van en la calle: la NAP colgada de la caja donde se hace el empalme.',
   odf: 'Clic donde está el distribuidor, normalmente dentro de la caseta.',
   poste: 'Clic en cada poste. También los puedes traer de golpe con «Importar postes».',
-  ruta: 'Clic para ir marcando el recorrido del cable, poste por poste. Arrastra para moverte.',
+  ruta: 'Empieza dando clic SOBRE la línea del cable del que se deriva: ahí te pregunto qué nodo va y cuáles hilos se cortan. Luego marca por dónde se va.',
   ramal:
-    'Dale clic a la caja de la que sale el cable nuevo. De una caja pueden salir todos los ramales que necesites, y ninguno le borra el trazo a otro.',
+    'Dale clic a la caja, NAP o sitio de donde sale el cable nuevo. De un mismo nodo pueden salir todos los ramales que necesites.',
   mover: 'Clic a lo que quieras mover y luego a su lugar correcto.',
 };
 
@@ -161,10 +161,12 @@ export function Mapa({
   const [tam, setTam] = useState({ w: 900, h: 560 });
   const [modo, setModo] = useState<Modo>('ver');
   const [dibujando, setDibujando] = useState<[number, number][]>([]);
-  const [cableRuta, setCableRuta] = useState<string>('');
-  // Reemplazar borra lo que había y no hay cómo deshacerlo, así que se elige a
-  // propósito y por omisión se ofrece continuar cuando ya hay algo dibujado.
-  const [modoTrazo, setModoTrazo] = useState<'reemplazar' | 'continuar'>('reemplazar');
+  // El nodo del que se está derivando, y la pregunta de qué colocar ahí.
+  // Así es como se traza de verdad: uno da clic sobre el cable del que va a
+  // sacar el ramal, no elige un cable de una lista antes de empezar.
+  const [derivando, setDerivando] = useState<Derivacion | null>(null);
+  const [derivaCaja, setDerivaCaja] = useState<string | null>(null);
+  const [cerrando, setCerrando] = useState(false);
   // Cuánto se movió el ratón con el botón apretado. Es lo que distingue un
   // clic de un arrastre, y por eso se puede desplazar el mapa en cualquier
   // modo: dibujando una ruta larga uno TIENE que poder moverse.
@@ -357,6 +359,27 @@ export function Mapa({
     if (elegido) setElegido(null);
 
     if (modo === 'ruta') {
+      // El primer punto es el que decide todo: si cae encima de la línea de un
+      // cable, ahí va un nodo y hay que preguntar cuál. Los siguientes puntos
+      // ya son solo trayectoria.
+      if (dibujando.length === 0 && !derivando) {
+        let sobre: { t: TrazoMapa; lat: number; lon: number; m: number } | null = null;
+        for (const t of trazos) {
+          const p = proyectarEnTrazo(t.puntos, c.lat, c.lon);
+          if (p && p.metros <= margen && (!sobre || p.metros < sobre.m)) {
+            sobre = { t, lat: p.lat, lon: p.lon, m: p.metros };
+          }
+        }
+        if (sobre) {
+          setDerivando({
+            cableId: sobre.t.id,
+            cable: sobre.t.codigo,
+            lat: sobre.lat,
+            lon: sobre.lon,
+          });
+          return;
+        }
+      }
       setDibujando((d) => [...d, ajustar(c.lat, c.lon)]);
       return;
     }
@@ -466,11 +489,6 @@ export function Mapa({
     const c = desproyectar(p.x - e.movementX, p.y - e.movementY, zoom);
     setCentro({ lat: c.lat, lon: c.lon });
   }
-
-  // El cable elegido para dibujar, cuando ya trae recorrido. Es lo que decide
-  // si hay que enseñar el aviso de reemplazo.
-  const elegidoRuta = cables.find((c) => c.id === cableRuta);
-  const yaTrazado = elegidoRuta && elegidoRuta.puntos_trazo >= 2 ? elegidoRuta : null;
 
   const largoDibujo = dibujando.reduce(
     (s, p, i) => (i === 0 ? 0 : s + metros(dibujando[i - 1], p)),
@@ -603,48 +621,47 @@ export function Mapa({
         <span className="ml-auto text-marino-400">{AYUDA[modo]}</span>
       </div>
 
-      {modo === 'ruta' && (
-        <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-naranja-200 bg-naranja-50/60 p-3">
-          <label className="block">
-            <span className="text-xs font-medium text-marino-600">¿De qué cable es la ruta?</span>
-            <select
-              value={cableRuta}
-              onChange={(e) => {
-                setCableRuta(e.target.value);
-                // Si el cable ya trae recorrido, lo que casi siempre se quiere
-                // es alargarlo. Reemplazar se elige a mano, viendo el aviso.
-                const c = cables.find((x) => x.id === e.target.value);
-                setModoTrazo(c && c.puntos_trazo >= 2 ? 'continuar' : 'reemplazar');
-              }}
-              className="mt-1 w-56 rounded-lg border border-marino-200 px-3 py-2 text-sm"
-            >
-              <option value="">Elige el cable</option>
-              {cables.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code}
-                  {c.puntos_trazo >= 2
-                    ? ` · ya trazado (${Math.round(Number(c.length_m ?? 0))} m)`
-                    : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="pb-2 text-sm text-marino-600">
+      {modo === 'ruta' && derivando && (
+        <Derivar
+          de={derivando}
+          onListo={(caja, mensaje) => {
+            // Se arranca el trazo exactamente en el punto pegado a la línea:
+            // el ramal sale del nodo, no de tres metros al lado.
+            setDibujando([[derivando.lat, derivando.lon]]);
+            setDerivaCaja(caja);
+            setDerivando(null);
+            decirRecado({ ok: true, texto: mensaje });
+            router.refresh();
+          }}
+          onCancelar={() => setDerivando(null)}
+        />
+      )}
+
+      {modo === 'ruta' && cerrando && (
+        <Terminar
+          ruta={dibujando}
+          cables={cables}
+          zona={zonaActual}
+          deriva={derivaCaja}
+          onListo={(r) => {
+            aplicar(r);
+            setDibujando([]);
+            setDerivaCaja(null);
+            setCerrando(false);
+          }}
+          onCancelar={() => setCerrando(false)}
+        />
+      )}
+
+      {modo === 'ruta' && !derivando && !cerrando && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-naranja-200 bg-naranja-50/60 p-3">
+          <span className="text-sm text-marino-600">
             {dibujando.length} {dibujando.length === 1 ? 'punto' : 'puntos'}
             {largoDibujo > 0 && ` · ${Math.round(largoDibujo)} m`}
+            {derivaCaja && ' · sale de la caja que acabas de poner'}
           </span>
-          <Boton
-            cargando={guardando}
-            disabled={!cableRuta || dibujando.length < 2}
-            onClick={() =>
-              empezar(async () => {
-                const r = await guardarTrazo(cableRuta, dibujando, modoTrazo);
-                aplicar(r);
-                if (r.ok) setDibujando([]);
-              })
-            }
-          >
-            {modoTrazo === 'continuar' && yaTrazado ? 'Alargar el trazo' : 'Guardar el trazo'}
+          <Boton disabled={dibujando.length < 2} onClick={() => setCerrando(true)}>
+            ✓ Terminar la ruta
           </Boton>
           <Boton
             variante="secundario"
@@ -653,60 +670,29 @@ export function Mapa({
           >
             Quitar el último
           </Boton>
-          <Boton variante="texto" onClick={() => setDibujando([])}>
+          <Boton
+            variante="texto"
+            onClick={() => {
+              setDibujando([]);
+              setDerivaCaja(null);
+            }}
+          >
             Empezar de nuevo
           </Boton>
-          {/* Lo que se dibuja encima de un cable que ya tenía recorrido no se
-              puede deshacer. Por eso la decisión se pone enfrente, no en un
-              menú de ajustes, y por omisión viene en «continuar». */}
-          {yaTrazado && (
-            <div className="w-full rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-xs text-aviso">
-                <strong>{yaTrazado.code}</strong> ya tiene {yaTrazado.puntos_trazo} puntos y{' '}
-                {Math.round(Number(yaTrazado.length_m ?? 0))} m dibujados.
-              </p>
-              <div className="mt-2 flex flex-wrap gap-4 text-xs text-marino-700">
-                <label className="flex cursor-pointer items-start gap-1.5">
-                  <input
-                    type="radio"
-                    name="modotrazo"
-                    className="mt-0.5"
-                    checked={modoTrazo === 'continuar'}
-                    onChange={() => setModoTrazo('continuar')}
-                  />
-                  <span>
-                    <strong>Continuar</strong>
-                    <span className="block text-marino-400">
-                      Lo alarga: lo que marques se pega al final de lo que ya había.
-                    </span>
-                  </span>
-                </label>
-                <label className="flex cursor-pointer items-start gap-1.5">
-                  <input
-                    type="radio"
-                    name="modotrazo"
-                    className="mt-0.5"
-                    checked={modoTrazo === 'reemplazar'}
-                    onChange={() => setModoTrazo('reemplazar')}
-                  />
-                  <span>
-                    <strong>Reemplazar</strong>
-                    <span className="block text-falla">
-                      Borra los {yaTrazado.puntos_trazo} puntos anteriores. No hay cómo deshacerlo.
-                    </span>
-                  </span>
-                </label>
-              </div>
-              <p className="mt-2 text-xs text-marino-500">
-                ¿Es otro cable que sale de una caja? No uses este: dale a{' '}
-                <strong>🌿 Ramal desde caja</strong> y clic a la caja. Así cada ramal tiene su
-                propio trazo y ninguno le borra el suyo a otro.
-              </p>
-            </div>
-          )}
           <p className="w-full text-xs text-marino-500">
-            Clic para poner un punto, <strong>arrastra para moverte</strong> sin perder lo que
-            llevas, y la rueda para acercar. El trazo aguanta los puntos que quieras.
+            {dibujando.length === 0 ? (
+              <>
+                <strong>Empieza dando clic sobre la línea del cable del que se deriva.</strong> Ahí
+                te pregunto qué nodo va en ese punto —caja, NAP+caja, o nada— y cuáles hilos se
+                cortan. Si el ramal no sale de ningún cable, dale clic donde arranca y ya.
+              </>
+            ) : (
+              <>
+                Sigue marcando por dónde se va, <strong>arrastra para moverte</strong> sin perder lo
+                que llevas, y al final dale a <strong>Terminar la ruta</strong>. Ahí eliges si es un
+                cable nuevo o uno que ya existe.
+              </>
+            )}
           </p>
         </div>
       )}
@@ -975,23 +961,16 @@ export function Mapa({
                 }
 
                 if (ramificar) {
-                  const codigo = window.prompt(
-                    `Código del cable que sale de ${p.nombre} (por ejemplo DI-CUE-02)`,
-                  );
-                  if (!codigo?.trim()) return;
-                  const hilos = Number(window.prompt('¿Cuántos hilos trae?', '12') ?? 12);
-                  empezar(async () => {
-                    const r = await ramalDesde(p.id.split(':')[1], codigo.trim(), hilos, 'adss');
-                    aplicar(r);
-                    if (r.ok && r.cable) {
-                      // Queda listo para dibujar: el cable elegido es el nuevo,
-                      // su primer punto es la caja, y el modo pasa a «continuar»
-                      // para que lo que marque se agregue a ese arranque.
-                      setCableRuta(r.cable);
-                      setDibujando([[p.lat, p.lon]]);
-                      setModoTrazo('continuar');
-                      setModo('ruta');
-                    }
+                  // El ramal arranca en el nodo y se marca como cualquier otra
+                  // ruta. Al terminar se decide si es cable nuevo o uno que ya
+                  // existe: preguntarlo antes obliga a inventarse el código sin
+                  // haber recorrido todavía.
+                  setDibujando([[p.lat, p.lon]]);
+                  setDerivaCaja(p.id.split(':')[1]);
+                  setModo('ruta');
+                  decirRecado({
+                    ok: true,
+                    texto: `La ruta arranca en ${p.nombre}. Ve marcando por dónde se va y dale a «Terminar la ruta».`,
                   });
                   return;
                 }
