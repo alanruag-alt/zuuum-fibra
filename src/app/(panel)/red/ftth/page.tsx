@@ -31,14 +31,12 @@ export default async function PaginaFTTH() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div>
+      {/* El título vive en el layout: aquí abajo son pestañas de lo mismo. */}
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-marino-800">Red FTTH</h1>
-          <p className="mt-1 text-sm text-marino-400">
-            NAP, mangas y splitters, con cuánto lugar les queda.
-          </p>
-        </div>
+        <p className="text-sm text-marino-500">
+          NAP, cajas de empalme, splitters y ODF, con cuánto lugar les queda.
+        </p>
         <EditarElemento zonas={zonas} padres={elementos} />
       </div>
 
