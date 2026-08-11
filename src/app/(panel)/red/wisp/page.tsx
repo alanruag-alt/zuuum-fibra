@@ -2,6 +2,7 @@ import { Indicador } from '@/componentes/ui/Indicador';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { EditarDispositivo, EditarSitio } from '@/app/(panel)/red/Editores';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { listarDispositivos, listarSitios } from '@/modulos/red/consultas';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import {
@@ -91,7 +92,12 @@ export default async function PaginaWISP() {
                 ]
                   .filter(Boolean)
                   .join(' · ')}
-                acciones={<EditarSitio zonas={zonas} sitio={s} />}
+                acciones={
+                  <div className="flex items-start gap-1">
+                    <EditarSitio zonas={zonas} sitio={s} />
+                    <Borrar tipo="sitio" id={s.id} nombre={s.name} />
+                  </div>
+                }
                 className={s.is_active ? '' : 'opacity-60'}
               >
                 {suyos.length === 0 ? (
@@ -117,8 +123,9 @@ export default async function PaginaWISP() {
                           {d.mgmt_ip && (
                             <span className="font-mono text-xs text-marino-400">{d.mgmt_ip}</span>
                           )}
-                          <span className="ml-auto">
+                          <span className="ml-auto flex items-start gap-1">
                             <EditarDispositivo zonas={zonas} sitios={sitios} dispositivo={d} />
+                            <Borrar tipo="dispositivo" id={d.id} nombre={d.name} />
                           </span>
                         </li>
                       );

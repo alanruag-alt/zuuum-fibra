@@ -203,3 +203,21 @@ export async function recuperarEquipo(
       'o el equipo no estaba a nombre de nadie.',
   };
 }
+
+export async function eliminarArticulo(
+  _anterior: Respuesta | null,
+  datos: FormData,
+): Promise<Respuesta> {
+  const id = limpio(datos, 'id');
+  if (!id) return { ok: false, mensaje: 'Falta cuál.' };
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('eliminar_articulo', { p_id: id });
+
+  // Cuando la base se niega, ya explica por qué y qué hacer primero. Se pasa
+  // el recado tal cual en vez de traducirlo a «no se pudo».
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath('/inventario');
+  return { ok: true, mensaje: `${data ?? 'Listo'}: borrado del almacén.` };
+}

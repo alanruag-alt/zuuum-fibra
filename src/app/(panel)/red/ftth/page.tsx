@@ -2,6 +2,7 @@ import { Indicador } from '@/componentes/ui/Indicador';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { EditarElemento } from '@/app/(panel)/red/Editores';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { listarElementos } from '@/modulos/red/consultas';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import { SEMAFORO, TIPO_ELEMENTO, etiqueta } from '@/modulos/red/etiquetas';
@@ -144,8 +145,11 @@ export default async function PaginaFTTH() {
                           <td className="py-2.5 pr-3 text-right text-marino-600">
                             {numero(e.servicios)}
                           </td>
-                          <td className="py-2.5 text-right">
-                            <EditarElemento zonas={zonas} elemento={e} padres={elementos} />
+                          <td className="py-2.5">
+                            <div className="flex items-start justify-end gap-1">
+                              <EditarElemento zonas={zonas} elemento={e} padres={elementos} />
+                              <Borrar tipo="elemento" id={e.id} nombre={e.code} />
+                            </div>
                           </td>
                         </tr>
                       );

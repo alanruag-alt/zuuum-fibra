@@ -3,6 +3,7 @@ import { Indicador } from '@/componentes/ui/Indicador';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { Mover, NuevoArticulo } from '@/app/(panel)/inventario/Editor';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { listarArticulos, listarMovimientos, listarSucursales } from '@/modulos/almacen/consultas';
 import { tecnicosDisponibles } from '@/modulos/campo/consultas';
 import { CATEGORIA, DONDE, MOVIMIENTO, UNIDAD, etiqueta } from '@/modulos/almacen/etiquetas';
@@ -146,8 +147,11 @@ export default async function PaginaInventario() {
                           {a.costo === null ? '—' : pesos(Number(a.costo), true)}
                         </td>
                       )}
-                      <td className="py-2.5 text-right">
-                        <NuevoArticulo articulo={a} />
+                      <td className="py-2.5">
+                        <div className="flex items-start justify-end gap-1">
+                          <NuevoArticulo articulo={a} />
+                          <Borrar tipo="articulo" id={a.id} nombre={a.name} />
+                        </div>
                       </td>
                     </tr>
                   );

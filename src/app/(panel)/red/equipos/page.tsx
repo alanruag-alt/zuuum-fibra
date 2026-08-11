@@ -2,6 +2,7 @@ import { Indicador } from '@/componentes/ui/Indicador';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { EditarDispositivo } from '@/app/(panel)/red/Editores';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { listarDispositivos, listarSitios } from '@/modulos/red/consultas';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import { ESTADO_DISPOSITIVO, TIPO_DISPOSITIVO, etiqueta } from '@/modulos/red/etiquetas';
@@ -121,8 +122,11 @@ export default async function PaginaEquiposRed() {
                       <td className="py-2.5 pr-3 text-right text-marino-600">
                         {d.cupo_onus > 0 ? `${numero(d.onus)}/${numero(d.cupo_onus)}` : '—'}
                       </td>
-                      <td className="py-2.5 text-right">
-                        <EditarDispositivo zonas={zonas} sitios={sitios} dispositivo={d} />
+                      <td className="py-2.5">
+                        <div className="flex items-start justify-end gap-1">
+                          <EditarDispositivo zonas={zonas} sitios={sitios} dispositivo={d} />
+                          <Borrar tipo="dispositivo" id={d.id} nombre={d.name} />
+                        </div>
                       </td>
                     </tr>
                   );

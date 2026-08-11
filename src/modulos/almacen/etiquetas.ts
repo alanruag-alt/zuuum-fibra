@@ -2,16 +2,20 @@
 
 type Tono = 'ok' | 'aviso' | 'falla' | 'neutro' | 'marca';
 
+// OJO: estas claves tienen que ser EXACTAMENTE las que acepta la base
+// (inventory_items_category_check). Si aquí se ofrece una que allá no existe,
+// el usuario elige «Antena», guarda, y le sale un error de base de datos en
+// crudo que no le dice nada. Ya pasó una vez.
 export const CATEGORIA: Record<string, string> = {
   ont: 'ONT / módem',
+  cpe: 'Antena de cliente',
   router: 'Router',
-  antenna: 'Antena',
-  cable: 'Cable',
+  drop_cable: 'Cable drop',
   connector: 'Conectores',
-  splitter: 'Splitters',
-  nap: 'NAP y cajas',
+  outlet: 'Roseta',
+  patchcord: 'Patchcord / jumper',
+  splitter: 'Splitter',
   tool: 'Herramienta',
-  consumable: 'Consumible',
   other: 'Otro',
 };
 
@@ -19,8 +23,6 @@ export const UNIDAD: Record<string, string> = {
   piece: 'pieza',
   meter: 'metro',
   roll: 'rollo',
-  box: 'caja',
-  kit: 'kit',
 };
 
 export const ESTADO_EQUIPO: Record<string, { texto: string; tono: Tono }> = {
