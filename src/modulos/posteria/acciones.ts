@@ -232,3 +232,19 @@ export async function importarKmz(
         : ''),
   };
 }
+
+export async function eliminarPlano(
+  _anterior: Respuesta | null,
+  datos: FormData,
+): Promise<Respuesta> {
+  const id = limpio(datos, 'id');
+  if (!id) return { ok: false, mensaje: 'Falta el plano.' };
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('eliminar_plano', { p_id: id });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath('/red/plano');
+  return { ok: true, mensaje: `«${data}» borrado.` };
+}

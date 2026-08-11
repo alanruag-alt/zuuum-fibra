@@ -106,27 +106,6 @@ export function EditarCable({ zonas, cable }: { zonas: Zona[]; cable?: Cable }) 
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-marino-600">Sale de</span>
-              <input
-                name="de_texto"
-                defaultValue={cable?.de ?? ''}
-                placeholder="Caseta de la OLT"
-                className={CAMPO}
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-medium text-marino-600">Llega a</span>
-              <input
-                name="a_texto"
-                defaultValue={cable?.a ?? ''}
-                placeholder="Esquina de la primaria"
-                className={CAMPO}
-              />
-              <span className="mt-1 block text-xs text-marino-400">
-                Como se dice en campo. Vale más que una dirección.
-              </span>
-            </label>
-            <label className="block">
               <span className="text-sm font-medium text-marino-600">Metros</span>
               <input
                 name="metros"
@@ -136,12 +115,21 @@ export function EditarCable({ zonas, cable }: { zonas: Zona[]; cable?: Cable }) 
                 defaultValue={cable?.length_m ?? ''}
                 className={CAMPO}
               />
+              <span className="mt-1 block text-xs text-marino-400">
+                Si dibujas la ruta en el mapa, esto se llena solo con lo que mida el trazo.
+              </span>
             </label>
             <label className="block sm:col-span-2">
               <span className="text-sm font-medium text-marino-600">Notas</span>
               <input name="notas" defaultValue={cable?.notes ?? ''} className={CAMPO} />
             </label>
           </div>
+
+          <p className="rounded-lg bg-marino-50 px-3 py-2 text-xs text-marino-500">
+            De dónde sale y a dónde llega no se escriben aquí: salen del trazo. En cuanto lo dibujes
+            en <strong>Mapa</strong>, el primer punto es la salida y el último la llegada, con
+            coordenadas exactas. Escribirlo aparte solo abre la puerta a que digan cosas distintas.
+          </p>
 
           {cable && (
             <label className="flex items-center gap-2">

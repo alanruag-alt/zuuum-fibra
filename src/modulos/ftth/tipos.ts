@@ -7,6 +7,12 @@ export interface Cable {
   zona: string | null;
   de: string | null;
   a: string | null;
+  desde_lat: number | null;
+  desde_lon: number | null;
+  hasta_lat: number | null;
+  hasta_lon: number | null;
+  puntos_trazo: number;
+  postes: number;
   length_m: number | null;
   plan_color: string | null;
   notes: string | null;

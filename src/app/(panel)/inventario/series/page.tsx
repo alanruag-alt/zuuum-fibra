@@ -3,6 +3,7 @@ import { Indicador } from '@/componentes/ui/Indicador';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { Instalar, NuevoEquipo, Retirar } from '@/app/(panel)/inventario/series/Editor';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { listarArticulos, listarEquipos, listarSucursales } from '@/modulos/almacen/consultas';
 import { ESTADO_EQUIPO, etiqueta } from '@/modulos/almacen/etiquetas';
 import { fecha, numero } from '@/lib/formato';
@@ -158,6 +159,9 @@ export default async function PaginaEquipos({ searchParams }: Props) {
                       )}
                       {e.status === 'in_stock' && <Instalar equipo={e} />}
                       {e.status === 'installed' && <Retirar equipo={e} sucursales={sucursales} />}
+                      {e.status !== 'installed' && (
+                        <Borrar tipo="equipo" id={e.id} nombre={e.serial_number} />
+                      )}
                     </div>
                   </div>
                 </li>

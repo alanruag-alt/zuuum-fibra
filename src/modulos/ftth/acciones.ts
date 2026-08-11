@@ -217,3 +217,66 @@ export async function alimentarNap(
   revalidatePath('/red/ftth/traza');
   return { ok: true, mensaje: hilo ? 'Ya se sabe de qué hilo cuelga.' : 'Hilo desligado.' };
 }
+
+/**
+ * Borrar un cable.
+ *
+ * La base revisa que no haya fusiones, NAP colgadas ni hilos en servicio, y si
+ * los hay dice cuáles. Los postes no estorban: se sueltan, porque siguen
+ * existiendo en la calle aunque el cable se haya capturado mal.
+ */
+export async function eliminarCable(
+  _anterior: Respuesta | null,
+  datos: FormData,
+): Promise<Respuesta> {
+  const id = limpio(datos, 'id');
+  if (!id) return { ok: false, mensaje: 'Falta el cable.' };
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('eliminar_cable', { p_id: id });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath('/red/ftth/cables');
+  revalidatePath('/red/ftth/mapa');
+  revalidatePath('/red/posteria');
+  return { ok: true, mensaje: `${data}: borrado.` };
+}
+
+export async function borrarTrazo(
+  _anterior: Respuesta | null,
+  datos: FormData,
+): Promise<Respuesta> {
+  const id = limpio(datos, 'id');
+  if (!id) return { ok: false, mensaje: 'Falta el cable.' };
+
+  const supabase = await crearClienteServidor();
+  const { error } = await supabase.rpc('borrar_trazo', { p_cable: id });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath('/red/ftth/cables');
+  revalidatePath('/red/ftth/mapa');
+  revalidatePath('/red/posteria');
+  return {
+    ok: true,
+    mensaje: 'Trazo borrado. Los postes que iban sobre él quedaron sueltos.',
+  };
+}
+
+export async function eliminarEquipo(
+  _anterior: Respuesta | null,
+  datos: FormData,
+): Promise<Respuesta> {
+  const id = limpio(datos, 'id');
+  if (!id) return { ok: false, mensaje: 'Falta el equipo.' };
+
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('eliminar_equipo', { p_id: id });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  revalidatePath('/inventario/series');
+  revalidatePath('/inventario');
+  return { ok: true, mensaje: `${data}: borrado.` };
+}

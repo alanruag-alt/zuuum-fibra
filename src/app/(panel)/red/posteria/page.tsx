@@ -2,12 +2,8 @@ import Link from 'next/link';
 import { Indicador } from '@/componentes/ui/Indicador';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
-import {
-  BorrarPoste,
-  EditarPoste,
-  ImportarKmz,
-  Renumerar,
-} from '@/app/(panel)/red/posteria/Editor';
+import { EditarPoste, ImportarKmz, Renumerar } from '@/app/(panel)/red/posteria/Editor';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { listarPostes } from '@/modulos/posteria/consultas';
 import { listarCables } from '@/modulos/ftth/consultas';
 import { listarZonas } from '@/modulos/clientes/consultas';
@@ -166,7 +162,11 @@ export default async function PaginaPosteria() {
                           <td className="py-2">
                             <div className="flex items-center justify-end gap-1">
                               <EditarPoste zonas={zonas} cables={cables} poste={p} />
-                              <BorrarPoste poste={p} />
+                              <Borrar
+                                tipo="poste"
+                                id={p.id}
+                                nombre={`el poste ${p.number ?? ''}`}
+                              />
                             </div>
                           </td>
                         </tr>

@@ -3,6 +3,8 @@
 import { useActionState, useState } from 'react';
 import { Boton } from '@/componentes/ui/Boton';
 import { eliminarArticulo } from '@/modulos/almacen/acciones';
+import { borrarTrazo, eliminarCable, eliminarEquipo } from '@/modulos/ftth/acciones';
+import { eliminarPlano, eliminarPoste } from '@/modulos/posteria/acciones';
 import { eliminarDispositivo, eliminarElemento, eliminarSitio } from '@/modulos/red/acciones';
 import type { Respuesta } from '@/modulos/admin/acciones';
 
@@ -11,6 +13,11 @@ const ACCIONES = {
   dispositivo: eliminarDispositivo,
   elemento: eliminarElemento,
   articulo: eliminarArticulo,
+  cable: eliminarCable,
+  trazo: borrarTrazo,
+  equipo: eliminarEquipo,
+  plano: eliminarPlano,
+  poste: eliminarPoste,
 } as const;
 
 interface Props {
@@ -18,6 +25,8 @@ interface Props {
   id: string;
   /** Cómo se llama la cosa. Se enseña en la pregunta, para no borrar a ciegas. */
   nombre: string;
+  /** Cómo se llama el botón, cuando «borrar» no es la palabra exacta. */
+  texto?: string;
 }
 
 /**
@@ -30,7 +39,7 @@ interface Props {
  * Si la base se niega —porque hay clientes colgados, existencia o historia—
  * su mensaje se enseña tal cual: ya viene explicando qué hacer primero.
  */
-export function Borrar({ tipo, id, nombre }: Props) {
+export function Borrar({ tipo, id, nombre, texto = 'borrar' }: Props) {
   const [preguntando, setPreguntando] = useState(false);
   const [estado, accion, enviando] = useActionState<Respuesta | null, FormData>(
     ACCIONES[tipo],
@@ -49,7 +58,7 @@ export function Borrar({ tipo, id, nombre }: Props) {
           onClick={() => setPreguntando(true)}
           className="rounded-lg px-2 py-1 text-xs text-marino-400 transition-colors hover:bg-red-50 hover:text-falla"
         >
-          borrar
+          {texto}
         </button>
         {estado && !estado.ok && (
           <p className="mt-1 max-w-md rounded-lg bg-red-50 px-3 py-2 text-xs text-falla">
@@ -63,7 +72,7 @@ export function Borrar({ tipo, id, nombre }: Props) {
   return (
     <div className="rounded-lg border border-red-200 bg-red-50/60 p-2">
       <p className="mb-2 text-xs text-marino-700">
-        ¿Borrar <strong>{nombre}</strong>?
+        ¿{texto === 'borrar' ? 'Borrar' : texto} <strong>{nombre}</strong>?
       </p>
       <form action={accion} className="flex flex-wrap gap-2">
         <input type="hidden" name="id" value={id} />

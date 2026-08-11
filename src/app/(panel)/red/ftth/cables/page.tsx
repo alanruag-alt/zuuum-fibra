@@ -2,6 +2,7 @@ import { Indicador } from '@/componentes/ui/Indicador';
 import { Insignia } from '@/componentes/ui/Insignia';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { EditarCable, Hilos } from '@/app/(panel)/red/ftth/cables/Editor';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { hilosDe, listarCables } from '@/modulos/ftth/consultas';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import { TIPO_CABLE } from '@/modulos/ftth/etiquetas';
@@ -82,10 +83,24 @@ export default async function PaginaCables() {
                       )}
                     </div>
                     <p className="mt-1 text-sm text-marino-500">
-                      {[c.de, c.a].filter(Boolean).join(' → ') || 'sin recorrido capturado'}
-                      {c.zona && ` · ${c.zona}`}
-                      {c.length_m && ` · ${numero(Number(c.length_m))} m`}
+                      {c.zona}
+                      {c.length_m ? ` · ${numero(Number(c.length_m))} m` : ''}
+                      {c.postes > 0 && ` · ${c.postes} postes`}
                     </p>
+                    {/* Los extremos salen del trazo: el primer punto y el último. */}
+                    {c.puntos_trazo >= 2 ? (
+                      <p className="mt-0.5 font-mono text-xs text-marino-400">
+                        {Number(c.desde_lat).toFixed(6)}, {Number(c.desde_lon).toFixed(6)}
+                        {' → '}
+                        {Number(c.hasta_lat).toFixed(6)}, {Number(c.hasta_lon).toFixed(6)}
+                        <span className="ml-2 font-sans">{c.puntos_trazo} puntos de trazo</span>
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-xs text-aviso">
+                        Sin ruta dibujada. Márcala en la pestaña Mapa y de ahí salen sus extremos y
+                        su longitud.
+                      </p>
+                    )}
                     {c.notes && <p className="mt-0.5 text-xs text-marino-400">{c.notes}</p>}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -103,9 +118,20 @@ export default async function PaginaCables() {
                       </div>
                     </div>
                     <EditarCable zonas={zonas} cable={c} />
+                    <Borrar tipo="cable" id={c.id} nombre={c.code} />
                   </div>
                 </div>
-                <Hilos hilos={hilos} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Hilos hilos={hilos} />
+                  {c.puntos_trazo >= 2 && (
+                    <Borrar
+                      tipo="trazo"
+                      id={c.id}
+                      nombre={`el trazo de ${c.code}`}
+                      texto="borrar el trazo"
+                    />
+                  )}
+                </div>
               </Tarjeta>
             );
           })}

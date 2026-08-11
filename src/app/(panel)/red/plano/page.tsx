@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import { EditorPlano } from '@/app/(panel)/red/plano/Editor';
+import { Borrar } from '@/componentes/ui/Borrar';
 import { listarPlanos } from '@/modulos/posteria/consultas';
 import { listarZonas } from '@/modulos/clientes/consultas';
 import { listarCables } from '@/modulos/ftth/consultas';
@@ -46,13 +47,16 @@ export default async function PaginaPlano() {
                 <span className="text-xs text-marino-400">
                   actualizado {fechaHora(p.updated_at)}
                 </span>
-                <Link
-                  href={`/plano/${p.id}`}
-                  className="ml-auto text-sm text-naranja-600 hover:underline"
-                  target="_blank"
-                >
-                  ver e imprimir →
-                </Link>
+                <span className="ml-auto flex items-center gap-2">
+                  <Link
+                    href={`/plano/${p.id}`}
+                    className="text-sm text-naranja-600 hover:underline"
+                    target="_blank"
+                  >
+                    ver e imprimir →
+                  </Link>
+                  <Borrar tipo="plano" id={p.id} nombre={p.name} />
+                </span>
               </li>
             ))}
           </ul>
