@@ -63,6 +63,15 @@ const COLOR_TRAZO = ['#f2820c', '#16a34a', '#2563eb', '#db2777', '#0ea5e9', '#7c
  * perpendicularmente sobre cada tramo y se toma el mejor. Se repite aquí para
  * poder avisar ANTES de preguntar el código, no después de haberlo escrito.
  */
+function Dato({ que, dato }: { que: string; dato: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="w-24 shrink-0 text-marino-400">{que}</dt>
+      <dd className="flex-1 text-marino-700">{dato}</dd>
+    </div>
+  );
+}
+
 function proyectarEnTrazo(
   ruta: [number, number][],
   lat: number,
@@ -119,7 +128,7 @@ const MODOS: { id: Modo; texto: string; icono: string }[] = [
 
 /** Lo que dice cada modo, para no tener que adivinar qué hace. */
 const AYUDA: Record<Modo, string> = {
-  ver: 'Arrastra para moverte y la rueda para acercar. Dale clic a una NAP, caja o poste para ver su ficha y poder borrarlo.',
+  ver: 'Arrastra para moverte y la rueda para acercar. Dale clic a un punto O a la línea de un cable para ver su ficha y poder borrarlo.',
   sitio: 'Clic donde está la torre, el POP o la caseta de la OLT.',
   caja: 'Clic SOBRE la línea del cable. Ahí se abre la caja de empalme, no a media cuadra.',
   nap: 'Clic SOBRE la línea del cable. La NAP cuelga de la fibra: si ahí no pasa, no entra.',
@@ -179,6 +188,10 @@ export function Mapa({
   const fallo = (texto: string) => decirRecado({ ok: false, texto });
   // Lo que se está viendo de cerca: la ficha de un punto del mapa.
   const [elegido, setElegido] = useState<PuntoMapa | null>(null);
+  // El cable seleccionado. Una línea también es una cosa que se captura, se
+  // revisa y a veces se borra; que solo los puntos fueran clicables dejaba a
+  // los cables sin manera de tocarlos desde donde se ven.
+  const [cableElegido, setCableElegido] = useState<TrazoMapa | null>(null);
   const [verPostes, setVerPostes] = useState(true);
   const [verNumeros, setVerNumeros] = useState(true);
   const [pegarAPostes, setPegarAPostes] = useState(true);
@@ -211,6 +224,10 @@ export function Mapa({
   useEffect(() => {
     if (elegido && !puntos.some((p) => p.id === elegido.id)) setElegido(null);
   }, [puntos, elegido]);
+
+  useEffect(() => {
+    if (cableElegido && !trazos.some((t) => t.id === cableElegido.id)) setCableElegido(null);
+  }, [trazos, cableElegido]);
 
   useEffect(() => {
     const medir = () => {
@@ -357,6 +374,7 @@ export function Mapa({
 
     // Clic al vacío: se cierra la ficha que estuviera abierta.
     if (elegido) setElegido(null);
+    if (cableElegido) setCableElegido(null);
 
     if (modo === 'ruta') {
       // El primer punto es el que decide todo: si cae encima de la línea de un
@@ -861,6 +879,26 @@ export function Mapa({
             const color = t.color ?? COLOR_TRAZO[i % COLOR_TRAZO.length];
             return (
               <g key={t.id}>
+                {/* Una línea de 3.5 px no se le atina con el ratón. Esta va
+                    transparente y gorda, solo para recibir el clic: es el
+                    truco de siempre para poder seleccionar trazos finos. */}
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth="18"
+                  strokeLinecap="round"
+                  className="pointer-events-auto cursor-pointer"
+                  onMouseUp={(e) => {
+                    if ((gesto.current?.movido ?? 0) > 6) return;
+                    if (modo !== 'ver') return;
+                    e.stopPropagation();
+                    gesto.current = null;
+                    setCableElegido(t);
+                    setElegido(null);
+                    decirRecado(null);
+                  }}
+                />
                 {/* Cuando se está colocando una NAP o una caja, la fibra se
                     engorda: es el único lugar donde se puede dar el clic, así
                     que tiene que verse desde lejos. */}
@@ -871,6 +909,17 @@ export function Mapa({
                     stroke={color}
                     strokeWidth="16"
                     strokeOpacity="0.22"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+                {cableElegido?.id === t.id && (
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="14"
+                    strokeOpacity="0.35"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
@@ -1106,6 +1155,111 @@ export function Mapa({
             )}
           </div>
         )}
+
+        {/* ── la ficha del cable ────────────────────────────────────────────
+            Va abajo a la izquierda para no pelearse con la ficha de los
+            puntos, que sale arriba. Un cable y una NAP se pueden estar viendo
+            al mismo tiempo, y eso es útil: se está revisando la caja y el
+            cable que la alimenta. */}
+        {cableElegido &&
+          (() => {
+            const c = cables.find((x) => x.id === cableElegido.id);
+            const largo = cableElegido.puntos.reduce(
+              (t, q, i) => (i === 0 ? 0 : t + metros(cableElegido.puntos[i - 1], q)),
+              0,
+            );
+            return (
+              <div
+                className="absolute bottom-3 left-3 w-72 rounded-xl border border-marino-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm"
+                style={{ zIndex: 30 }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="block h-1 w-5 shrink-0 rounded"
+                      style={{
+                        background:
+                          cableElegido.color ??
+                          COLOR_TRAZO[
+                            trazos.findIndex((t) => t.id === cableElegido.id) % COLOR_TRAZO.length
+                          ],
+                      }}
+                    />
+                    <p className="truncate font-mono text-sm font-semibold text-marino-800">
+                      {cableElegido.codigo}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCableElegido(null)}
+                    className="shrink-0 rounded px-1 text-marino-400 hover:bg-marino-50 hover:text-marino-700"
+                    aria-label="Cerrar"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <dl className="mt-2.5 space-y-1.5 text-xs">
+                  <Dato que="Hilos" dato={c ? `${c.fiber_count} · ${c.libres} libres` : '—'} />
+                  <Dato
+                    que="Longitud"
+                    dato={`${Math.round(Number(c?.length_m ?? largo))} m · ${cableElegido.puntos.length} puntos`}
+                  />
+                  <Dato que="Zona" dato={c?.zona ?? '—'} />
+                  {c?.de && <Dato que="Sale de" dato={c.de} />}
+                  {c && c.postes > 0 && <Dato que="Postes" dato={`${c.postes}`} />}
+                  {c && c.lastimados > 0 && (
+                    <Dato
+                      que="Ojo"
+                      dato={`${c.lastimados} ${c.lastimados === 1 ? 'hilo lastimado' : 'hilos lastimados'}`}
+                    />
+                  )}
+                </dl>
+
+                {puedeEditar && (
+                  <div className="mt-3 space-y-2 border-t border-marino-100 pt-2.5">
+                    {/* Dos borrados distintos, y la diferencia importa: uno
+                        quita el dibujo y deja el cable con sus hilos; el otro
+                        se lleva el cable entero. */}
+                    <div>
+                      <Borrar
+                        tipo="trazo"
+                        id={cableElegido.id}
+                        nombre={`el trazo de ${cableElegido.codigo}`}
+                        texto="borrar solo el trazo"
+                        alTerminar={() => {
+                          setCableElegido(null);
+                          router.refresh();
+                        }}
+                      />
+                      <p className="px-2 text-[11px] text-marino-400">
+                        Quita el dibujo del mapa. El cable y sus {c?.fiber_count ?? ''} hilos siguen
+                        dados de alta.
+                      </p>
+                    </div>
+                    <div>
+                      <Borrar
+                        tipo="cable"
+                        id={cableElegido.id}
+                        nombre={cableElegido.codigo}
+                        texto="borrar el cable completo"
+                        alTerminar={() => {
+                          setCableElegido(null);
+                          router.refresh();
+                        }}
+                      />
+                      <p className="px-2 text-[11px] text-marino-400">
+                        Se lleva el cable con todos sus hilos. Si algo cuelga de ellos, la base se
+                        niega y te dice qué.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
         <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-white/85 px-1.5 py-0.5 text-[9px] text-marino-500">
           © OpenStreetMap

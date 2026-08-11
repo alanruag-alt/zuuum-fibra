@@ -251,7 +251,7 @@ export async function borrarTrazo(
   if (!id) return { ok: false, mensaje: 'Falta el cable.' };
 
   const supabase = await crearClienteServidor();
-  const { error } = await supabase.rpc('borrar_trazo', { p_cable: id });
+  const { data, error } = await supabase.rpc('borrar_trazo', { p_cable: id });
 
   if (error) return { ok: false, mensaje: error.message };
 
@@ -260,7 +260,7 @@ export async function borrarTrazo(
   revalidatePath('/red/posteria');
   return {
     ok: true,
-    mensaje: 'Trazo borrado. Los postes que iban sobre él quedaron sueltos.',
+    mensaje: String(data ?? 'Trazo borrado.') + ' Los postes que iban sobre él quedaron sueltos.',
   };
 }
 
