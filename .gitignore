@@ -17,6 +17,10 @@ next-env.d.ts
 .env.local
 .env*.local
 .env.production
+# cualquier respaldo/copia de un .env tampoco (p. ej. .env.local.respaldo)
+.env*.respaldo
+.env.*.bak
+.env.local.*
 
 # sistema
 .DS_Store
