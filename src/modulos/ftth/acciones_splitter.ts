@@ -99,6 +99,61 @@ export async function conectarSalida(
   return { ok: true, mensaje: String(data ?? 'Salida conectada.') };
 }
 
+/**
+ * Conectar una salida arrastrando en el dibujo de la caja.
+ *
+ * Es la misma conexión de arriba, pero llamada directo desde el lienzo: el
+ * técnico suelta el punto de una salida sobre un hilo o sobre una NAP. La base
+ * cuida las validaciones (un hilo a un solo lado, etc.) y su mensaje se enseña
+ * tal cual.
+ */
+export async function conectarSalidaArrastre(
+  salida: string,
+  tipo: 'hilo' | 'nap',
+  destino: string,
+): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('conectar_salida', {
+    p_salida: salida,
+    p_hilo: tipo === 'hilo' ? destino : null,
+    p_nap: tipo === 'nap' ? destino : null,
+    p_nap_port: null,
+    p_potencia: null,
+    p_estado: null,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  refrescar();
+  return { ok: true, mensaje: String(data ?? 'Salida conectada.') };
+}
+
+/** Soltar una salida: la deja disponible otra vez y regresa el hilo destino. */
+export async function soltarSalida(salida: string): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('soltar_salida_splitter', {
+    p_salida: salida,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  refrescar();
+  return { ok: true, mensaje: String(data ?? 'Salida liberada.') };
+}
+
+/** Soltar la ENTRADA del splitter, para poder alimentarlo desde otro hilo. */
+export async function soltarEntradaSplitter(splitter: string): Promise<Respuesta> {
+  const supabase = await crearClienteServidor();
+  const { data, error } = await supabase.rpc('soltar_entrada_splitter', {
+    p_splitter: splitter,
+  });
+
+  if (error) return { ok: false, mensaje: error.message };
+
+  refrescar();
+  return { ok: true, mensaje: `${data ?? 'Splitter'}: entrada libre. Ahora arrástrale otro hilo.` };
+}
+
 export async function alimentarNap(
   _anterior: Respuesta | null,
   datos: FormData,
