@@ -9,20 +9,44 @@ ya conoces —el zip, el ACTUALIZAR, y la carpeta `_to_delete`.
 
 ---
 
+## 0 · Antes de empezar
+
+Claude Code necesita cuenta **Pro, Max, Team o Enterprise**. Es la misma con la
+que entras a esta app; si aquí funciona, allá también.
+
+---
+
 ## 1 · Instalarlo
 
 Abre **PowerShell** (botón de Inicio, escribe «powershell», Enter) y pega:
 
 ```powershell
-npm install -g @anthropic-ai/claude-code
+irm https://claude.ai/install.ps1 | iex
 ```
 
-Si dice que `npm` no existe, es que falta Node.js: instálalo de
-<https://nodejs.org> (la versión LTS) y vuelve a intentar.
+No hace falta abrirlo como administrador. Se actualiza solo de aquí en adelante.
+
+Para comprobar que quedó, cierra esa ventana, abre otra y escribe:
+
+```powershell
+claude --version
+```
+
+Tiene que imprimir un número de versión.
 
 ---
 
-## 2 · Abrirlo en el proyecto
+## 2 · Instalar Git para Windows (recomendado)
+
+Bájalo de <https://git-scm.com/downloads/win> y dale siguiente a todo.
+
+No es obligatorio, pero **para este proyecto conviene**: sin él, Claude Code no
+puede correr comandos de git ni de PostgreSQL igual de bien, y aquí se usan los
+dos todo el tiempo.
+
+---
+
+## 3 · Abrirlo en el proyecto
 
 En la misma ventana, pega estas dos líneas:
 
@@ -41,7 +65,7 @@ tienes que explicarle nada de eso.
 
 ---
 
-## 3 · Qué decirle la primera vez
+## 4 · Qué decirle la primera vez
 
 Algo así, en tus palabras:
 
@@ -54,7 +78,7 @@ y te dice si truena; ya no le tienes que dar a ACTUALIZAR.
 
 ---
 
-## 4 · Lo primero que le conviene hacer
+## 5 · Lo primero que le conviene hacer
 
 Está anotado en el `CLAUDE.md`, pero por si acaso, en orden de urgencia:
 
