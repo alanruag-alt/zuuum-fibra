@@ -43,8 +43,20 @@ interface Caja {
  * orden: un splitter existe dentro de algo, y preguntar dónde va al final
  * invita a capturarlo «para acomodarlo luego», que es como se llenan las bases
  * de datos de cosas flotando.
+ *
+ * Cuando se pone desde adentro de una caja (cajaFija), no se pregunta dónde va:
+ * ya se sabe. El selector se cambia por un dato fijo, porque el usuario ya está
+ * parado en esa caja y volver a elegirla solo invita a equivocarse de renglón.
  */
-export function EditarSplitter({ cajas, splitter }: { cajas: Caja[]; splitter?: Splitter }) {
+export function EditarSplitter({
+  cajas,
+  splitter,
+  cajaFija,
+}: {
+  cajas: Caja[];
+  splitter?: Splitter;
+  cajaFija?: { id: string; code: string; tipo: string };
+}) {
   const [abierto, setAbierto] = useState(false);
   const [estado, accion, enviando] = useActionState<Respuesta | null, FormData>(
     guardarSplitter,
@@ -68,27 +80,43 @@ export function EditarSplitter({ cajas, splitter }: { cajas: Caja[]; splitter?: 
         <form action={accion} className="mt-3 space-y-4">
           {splitter && <input type="hidden" name="id" value={splitter.id} />}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="block sm:col-span-2">
-              <span className="text-sm font-medium text-marino-600">¿En qué caja va montado?</span>
-              <select
-                name="caja"
-                required
-                defaultValue={splitter?.housing_id ?? ''}
-                className={CAMPO}
-                autoFocus
-              >
-                <option value="">Elige la caja primero</option>
-                {cajas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} — {TIPO_CAJA[c.tipo] ?? c.tipo}
-                    {c.zona ? ` · ${c.zona}` : ''}
-                  </option>
-                ))}
-              </select>
-              <span className="mt-1 block text-xs text-marino-400">
-                Una caja de empalme, una NAP, o el ODF si es de rack.
-              </span>
-            </label>
+            {cajaFija ? (
+              <div className="block sm:col-span-2">
+                <span className="text-sm font-medium text-marino-600">Va montado en</span>
+                <input type="hidden" name="caja" value={cajaFija.id} />
+                <p className="mt-1 rounded-lg border border-marino-100 bg-marino-50 px-3 py-2 text-sm text-marino-700">
+                  <span className="font-mono">{cajaFija.code}</span>
+                  <span className="text-marino-400">
+                    {' '}
+                    — {TIPO_CAJA[cajaFija.tipo] ?? cajaFija.tipo}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <label className="block sm:col-span-2">
+                <span className="text-sm font-medium text-marino-600">
+                  ¿En qué caja va montado?
+                </span>
+                <select
+                  name="caja"
+                  required
+                  defaultValue={splitter?.housing_id ?? ''}
+                  className={CAMPO}
+                  autoFocus
+                >
+                  <option value="">Elige la caja primero</option>
+                  {cajas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.code} — {TIPO_CAJA[c.tipo] ?? c.tipo}
+                      {c.zona ? ` · ${c.zona}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs text-marino-400">
+                  Una caja de empalme, una NAP, o el ODF si es de rack.
+                </span>
+              </label>
+            )}
             <label className="block">
               <span className="text-sm font-medium text-marino-600">Código</span>
               <input
@@ -97,6 +125,7 @@ export function EditarSplitter({ cajas, splitter }: { cajas: Caja[]; splitter?: 
                 defaultValue={splitter?.code}
                 placeholder="SPL-CE005-01"
                 className={`${CAMPO} font-mono`}
+                autoFocus={!!cajaFija && !splitter}
               />
             </label>
             <label className="block">

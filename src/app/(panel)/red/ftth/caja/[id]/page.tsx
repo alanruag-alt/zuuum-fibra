@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Tarjeta } from '@/componentes/ui/Tarjeta';
 import Diagrama from '@/app/(panel)/red/ftth/caja/[id]/Diagrama';
+import { SplittersDeCaja } from '@/app/(panel)/red/ftth/caja/[id]/Splitters';
 import { cablesEnCaja, destinosEnCaja, hilosEnCaja } from '@/modulos/ftth/caja';
 import { listarCables } from '@/modulos/ftth/consultas';
 import { crearClienteServidor } from '@/lib/supabase/servidor';
@@ -70,13 +71,18 @@ export default async function PaginaCaja({ params }: { params: Promise<{ id: str
           </p>
         </Tarjeta>
       ) : (
-        <Diagrama
-          caja={{ id: caja.id, code: caja.code, name: caja.name, tipo: caja.element_type }}
-          cables={cables}
-          hilos={hilos}
-          destinos={destinos}
-          disponibles={todos.map((c) => ({ id: c.id, code: c.code, hilos: c.fiber_count }))}
-        />
+        <>
+          <Diagrama
+            caja={{ id: caja.id, code: caja.code, name: caja.name, tipo: caja.element_type }}
+            cables={cables}
+            hilos={hilos}
+            destinos={destinos}
+            disponibles={todos.map((c) => ({ id: c.id, code: c.code, hilos: c.fiber_count }))}
+          />
+          <SplittersDeCaja
+            caja={{ id: caja.id, code: caja.code, tipo: caja.element_type, zona: caja.zona }}
+          />
+        </>
       )}
     </div>
   );

@@ -9,7 +9,6 @@ const SECCIONES = [
   { ruta: '/red/ftth/cables', etiqueta: 'Cables e hilos' },
   { ruta: '/red/ftth/fusiones', etiqueta: 'Fusiones' },
   { ruta: '/red/ftth/caja', etiqueta: 'Caja por dentro' },
-  { ruta: '/red/ftth/splitters', etiqueta: 'Splitters' },
   { ruta: '/red/ftth/naps', etiqueta: 'NAP y puertos' },
   { ruta: '/red/ftth/mapa', etiqueta: 'Mapa' },
   { ruta: '/red/ftth/ruta', etiqueta: 'Ruta del cliente' },

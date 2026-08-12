@@ -16,7 +16,9 @@ function num(datos: FormData, campo: string): number | null {
 }
 
 function refrescar() {
-  revalidatePath('/red/ftth/splitters');
+  // Los splitters ahora se manejan dentro de la caja: hay que revalidar esa
+  // ruta dinámica para que el cambio se vea sin recargar a mano.
+  revalidatePath('/red/ftth/caja/[id]', 'page');
   revalidatePath('/red/ftth/naps');
   revalidatePath('/red/ftth');
   revalidatePath('/red/ftth/ruta');
